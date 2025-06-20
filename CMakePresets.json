@@ -1,0 +1,18 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "Default vcpkg",
+            "description": "Uses vcpkg toolchain. Prioritizes VCPKG_ROOT env var, falls back to /Users/mac/vcpkg if not set.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "$env{VCPKG_ROOT:/Users/mac/vcpkg}/scripts/buildsystems/vcpkg.cmake"
+                }
+            }
+        }
+    ]
+}

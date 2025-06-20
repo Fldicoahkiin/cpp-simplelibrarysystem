@@ -1,0 +1,18 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "cpp-library-server",
+    "version-string": "1.0.0",
+    "description": "A simple C++ web server for a library management system.",
+    "dependencies": [
+        {
+            "name": "cpp-httplib",
+            "features": [
+                "openssl"
+            ]
+        },
+        "nlohmann-json",
+        {
+            "name": "libmysql"
+        }
+    ]
+}

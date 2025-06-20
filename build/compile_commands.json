@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/Users/mac/WorkSpace/Cpp_Project/图书管理系统-袁浩/build",
-  "command": "/usr/bin/c++ -DCPPHTTPLIB_BROTLI_SUPPORT -DCPPHTTPLIB_OPENSSL_SUPPORT -DCPPHTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN -isystem /Users/mac/vcpkg/installed/arm64-osx/include -g -std=gnu++17 -arch arm64 -o CMakeFiles/server.dir/server.cpp.o -c /Users/mac/WorkSpace/Cpp_Project/图书管理系统-袁浩/server.cpp",
-  "file": "/Users/mac/WorkSpace/Cpp_Project/图书管理系统-袁浩/server.cpp",
-  "output": "CMakeFiles/server.dir/server.cpp.o"
-}
-]
