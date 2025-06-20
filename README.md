@@ -124,3 +124,28 @@
 1. **推送到 GitHub**: 将项目代码推送到您的 GitHub 仓库的 `main` 分支。
 2. **查看进度**: 在仓库页面点击 "Actions" 标签页，等待 "Build Project" 工作流完成。
 3. **下载产物**: 在工作流的 "Summary" 页面底部，找到 "Artifacts"，您可以在这里下载为 Windows 和 macOS 分别编译好的程序压缩包。
+
+## 本地快速构建
+
+1. 安装并初始化 vcpkg（若已装请跳过）
+
+```bash
+# 克隆 vcpkg
+git clone https://github.com/microsoft/vcpkg.git
+./vcpkg/bootstrap-vcpkg.sh   # Windows 用 bootstrap-vcpkg.bat
+# 建议把 vcpkg 目录加入环境变量 VCPKG_ROOT
+export VCPKG_ROOT="/path/to/vcpkg"   # Windows: setx VCPKG_ROOT "C:\path\to\vcpkg"
+```
+
+2. 一行命令完成配置 + 构建（依赖 Ninja）
+
+```bash
+cmake --preset default
+cmake --build --preset default --config Release
+```
+
+说明：
+
+* 预设文件 `CMakePresets.json` 已将 `CMAKE_TOOLCHAIN_FILE` 指向 `${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake`。
+* vcpkg 会根据 `vcpkg.json` 自动安装依赖，无需手动 `vcpkg install`。
+* 若不想用 Ninja，可在 `CMakePresets.json` 中将 `generator` 修改为 `"Ninja Multi-Config"` 对应平台支持的生成器，例如 `Visual Studio 17 2022`。
