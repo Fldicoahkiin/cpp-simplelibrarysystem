@@ -76,7 +76,7 @@ public:
             string username = j.at("username").get<string>();
             string password = j.at("password").get<string>();
 
-            const char *query = "INSERT INTO users (username, password) VALUES (?, ?)";
+            const char *query = "INSERT INTO users (username, password, is_admin) VALUES (?, ?, FALSE)";
             unique_ptr<MYSQL_STMT, decltype(&mysql_stmt_close)> stmt(mysql_stmt_init(db.get()), &mysql_stmt_close);
             mysql_stmt_prepare(stmt.get(), query, strlen(query));
 
@@ -108,7 +108,7 @@ public:
         }
     }
 
-    // API: 用户登录
+    // API: 用户登录 (返回 isAdmin 状态)
     ApiResponse loginUser(const json &j)
     {
         try
@@ -117,7 +117,7 @@ public:
             string username = j.at("username").get<string>();
             string password = j.at("password").get<string>();
 
-            const char *query = "SELECT id, username FROM users WHERE username = ? AND password = ?";
+            const char *query = "SELECT id, username, is_admin FROM users WHERE username = ? AND password = ?";
             unique_ptr<MYSQL_STMT, decltype(&mysql_stmt_close)> stmt(mysql_stmt_init(db.get()), &mysql_stmt_close);
             mysql_stmt_prepare(stmt.get(), query, strlen(query));
 
@@ -138,21 +138,26 @@ public:
             {
                 long long userId;
                 char dbUsername[256];
-                MYSQL_BIND result[2];
+                my_bool isAdmin = false;
+
+                MYSQL_BIND result[3];
                 memset(result, 0, sizeof(result));
                 result[0].buffer_type = MYSQL_TYPE_LONGLONG;
                 result[0].buffer = &userId;
                 result[1].buffer_type = MYSQL_TYPE_STRING;
                 result[1].buffer = dbUsername;
                 result[1].buffer_length = sizeof(dbUsername);
+                result[2].buffer_type = MYSQL_TYPE_TINY;
+                result[2].buffer = &isAdmin;
                 mysql_stmt_bind_result(stmt.get(), result);
                 mysql_stmt_fetch(stmt.get());
 
                 json response_json = {
                     {"success", true},
-                    {"token", "fake-jwt-token"},
+                    {"token", "fake-jwt-token"}, // 实际项目中应使用真实的JWT
                     {"userId", userId},
-                    {"username", dbUsername}};
+                    {"username", dbUsername},
+                    {"isAdmin", isAdmin}};
                 return {200, response_json};
             }
             else
@@ -166,30 +171,58 @@ public:
         }
     }
 
-    // API: 获取所有图书
-    ApiResponse getAllBooks()
+    // API: 获取/搜索图书
+    ApiResponse searchBooks(const string &searchTerm)
     {
         try
         {
             DBConnection db;
-            if (mysql_query(db.get(), "SELECT id, title, stock FROM books"))
-            {
-                throw runtime_error("mysql_query failed: " + string(mysql_error(db.get())));
-            }
-
-            unique_ptr<MYSQL_RES, decltype(&mysql_free_result)> result(mysql_store_result(db.get()), &mysql_free_result);
-            if (!result)
-            {
-                throw runtime_error("mysql_store_result failed: " + string(mysql_error(db.get())));
-            }
-
             json books_array = json::array();
-            MYSQL_ROW row;
-            while ((row = mysql_fetch_row(result.get())))
+            string query_str = "SELECT id, title, stock FROM books";
+            if (!searchTerm.empty())
             {
-                books_array.push_back({{"id", stoll(row[0])},
-                                       {"title", row[1]},
-                                       {"stock", stoi(row[2])}});
+                query_str += " WHERE title LIKE ? OR id = ?";
+            }
+
+            unique_ptr<MYSQL_STMT, decltype(&mysql_stmt_close)> stmt(mysql_stmt_init(db.get()), &mysql_stmt_close);
+            mysql_stmt_prepare(stmt.get(), query_str.c_str(), query_str.length());
+
+            if (!searchTerm.empty())
+            {
+                MYSQL_BIND params[2];
+                memset(params, 0, sizeof(params));
+                string like_term = "%" + searchTerm + "%";
+                params[0].buffer_type = MYSQL_TYPE_STRING;
+                params[0].buffer = (char *)like_term.c_str();
+                params[0].buffer_length = like_term.length();
+                long long bookId_term = atoll(searchTerm.c_str());
+                params[1].buffer_type = MYSQL_TYPE_LONGLONG;
+                params[1].buffer = &bookId_term;
+                mysql_stmt_bind_param(stmt.get(), params);
+            }
+
+            mysql_stmt_execute(stmt.get());
+            mysql_stmt_store_result(stmt.get());
+
+            long long bookId;
+            char title[256];
+            int stock;
+            MYSQL_BIND result[3];
+            memset(result, 0, sizeof(result));
+            result[0].buffer_type = MYSQL_TYPE_LONGLONG;
+            result[0].buffer = &bookId;
+            result[1].buffer_type = MYSQL_TYPE_STRING;
+            result[1].buffer = title;
+            result[1].buffer_length = sizeof(title);
+            result[2].buffer_type = MYSQL_TYPE_LONG;
+            result[2].buffer = &stock;
+            mysql_stmt_bind_result(stmt.get(), result);
+
+            while (mysql_stmt_fetch(stmt.get()) == 0)
+            {
+                books_array.push_back({{"id", bookId},
+                                       {"title", title},
+                                       {"stock", stock}});
             }
             return {200, books_array};
         }
@@ -247,6 +280,26 @@ public:
 
             int userId = j_req.at("userId").get<int>();
             int bookId = j_req.at("bookId").get<int>();
+
+            // 检查是否已借阅且未归还
+            {
+                const char *q_check = "SELECT id FROM borrow_records WHERE user_id = ? AND book_id = ? AND returned = FALSE";
+                unique_ptr<MYSQL_STMT, decltype(&mysql_stmt_close)> stmt(mysql_stmt_init(db.get()), &mysql_stmt_close);
+                mysql_stmt_prepare(stmt.get(), q_check, strlen(q_check));
+                MYSQL_BIND p_check[2];
+                memset(p_check, 0, sizeof(p_check));
+                p_check[0].buffer_type = MYSQL_TYPE_LONG;
+                p_check[0].buffer = &userId;
+                p_check[1].buffer_type = MYSQL_TYPE_LONG;
+                p_check[1].buffer = &bookId;
+                mysql_stmt_bind_param(stmt.get(), p_check);
+                mysql_stmt_execute(stmt.get());
+                mysql_stmt_store_result(stmt.get());
+                if (mysql_stmt_num_rows(stmt.get()) > 0)
+                {
+                    throw runtime_error("您已借阅此书且尚未归还");
+                }
+            }
 
             // 检查库存
             int stock = -1;
@@ -416,6 +469,155 @@ public:
             return {500, {{"success", false}, {"message", "服务器错误: " + string(e.what())}}};
         }
     }
+
+    // ---- 新增管理员和推荐功能 ----
+
+    // API (Admin): 获取所有用户
+    ApiResponse getAllUsers()
+    {
+        try
+        {
+            DBConnection db;
+            if (mysql_query(db.get(), "SELECT id, username, is_admin FROM users"))
+            {
+                throw runtime_error("mysql_query failed: " + string(mysql_error(db.get())));
+            }
+            unique_ptr<MYSQL_RES, decltype(&mysql_free_result)> result(mysql_store_result(db.get()), &mysql_free_result);
+            if (!result)
+            {
+                throw runtime_error("mysql_store_result failed: " + string(mysql_error(db.get())));
+            }
+            json users_array = json::array();
+            MYSQL_ROW row;
+            while ((row = mysql_fetch_row(result.get())))
+            {
+                users_array.push_back({{"id", stoll(row[0])},
+                                       {"username", row[1]},
+                                       {"isAdmin", (bool)atoi(row[2])}});
+            }
+            return {200, users_array};
+        }
+        catch (const exception &e)
+        {
+            return {500, {{"success", false}, {"message", e.what()}}};
+        }
+    }
+
+    // API (Admin): 获取指定用户的全部借阅历史
+    ApiResponse getAllUserBorrows(int userId)
+    {
+        try
+        {
+            DBConnection db;
+            const char *query = "SELECT b.id, b.title, br.borrow_date, br.returned FROM borrow_records br JOIN books b ON br.book_id = b.id WHERE br.user_id = ? ORDER BY br.borrow_date DESC";
+            unique_ptr<MYSQL_STMT, decltype(&mysql_stmt_close)> stmt(mysql_stmt_init(db.get()), &mysql_stmt_close);
+            mysql_stmt_prepare(stmt.get(), query, strlen(query));
+            MYSQL_BIND params[1];
+            memset(params, 0, sizeof(params));
+            params[0].buffer_type = MYSQL_TYPE_LONG;
+            params[0].buffer = &userId;
+            mysql_stmt_bind_param(stmt.get(), params);
+            mysql_stmt_execute(stmt.get());
+            mysql_stmt_store_result(stmt.get());
+            json records_array = json::array();
+            if (mysql_stmt_num_rows(stmt.get()) > 0)
+            {
+                long long bookId;
+                char title[256];
+                MYSQL_TIME borrow_date;
+                my_bool returned;
+                MYSQL_BIND result[4];
+                memset(result, 0, sizeof(result));
+                result[0].buffer_type = MYSQL_TYPE_LONGLONG;
+                result[0].buffer = &bookId;
+                result[1].buffer_type = MYSQL_TYPE_STRING;
+                result[1].buffer = title;
+                result[1].buffer_length = sizeof(title);
+                result[2].buffer_type = MYSQL_TYPE_TIMESTAMP;
+                result[2].buffer = &borrow_date;
+                result[3].buffer_type = MYSQL_TYPE_TINY;
+                result[3].buffer = &returned;
+                mysql_stmt_bind_result(stmt.get(), result);
+                while (mysql_stmt_fetch(stmt.get()) == 0)
+                {
+                    char date_str[20];
+                    snprintf(date_str, 20, "%04d-%02d-%02d", borrow_date.year, borrow_date.month, borrow_date.day);
+                    records_array.push_back({{"bookId", bookId},
+                                             {"title", title},
+                                             {"borrowDate", date_str},
+                                             {"returned", (bool)returned}});
+                }
+            }
+            return {200, records_array};
+        }
+        catch (const exception &e)
+        {
+            return {500, {{"success", false}, {"message", e.what()}}};
+        }
+    }
+
+    // API: 获取图书推荐
+    ApiResponse getRecommendations(int userId)
+    {
+        try
+        {
+            DBConnection db;
+            // 复杂的推荐逻辑，分步执行
+            // 1. 找到该用户借过的所有书
+            string q1 = "SELECT book_id FROM borrow_records WHERE user_id=" + to_string(userId);
+            if (mysql_query(db.get(), q1.c_str()))
+                throw runtime_error("Query failed: " + string(mysql_error(db.get())));
+            unique_ptr<MYSQL_RES, decltype(&mysql_free_result)> res1(mysql_store_result(db.get()), &mysql_free_result);
+            string user_books = "";
+            MYSQL_ROW row1;
+            while ((row1 = mysql_fetch_row(res1.get())))
+            {
+                user_books += string(row1[0]) + ",";
+            }
+            if (user_books.empty())
+                return {200, json::array()}; // 没有借阅记录，无法推荐
+            user_books.pop_back();
+
+            // 2. 找到借过这些书的其他用户
+            string q2 = "SELECT DISTINCT user_id FROM borrow_records WHERE book_id IN (" + user_books + ") AND user_id != " + to_string(userId);
+            if (mysql_query(db.get(), q2.c_str()))
+                throw runtime_error("Query failed: " + string(mysql_error(db.get())));
+            unique_ptr<MYSQL_RES, decltype(&mysql_free_result)> res2(mysql_store_result(db.get()), &mysql_free_result);
+            string other_users = "";
+            MYSQL_ROW row2;
+            while ((row2 = mysql_fetch_row(res2.get())))
+            {
+                other_users += string(row2[0]) + ",";
+            }
+            if (other_users.empty())
+                return {200, json::array()}; // 没有其他相似用户
+            other_users.pop_back();
+
+            // 3. 找到这些用户借阅的、但当前用户没借过的书，并按频率排序
+            string q3 = "SELECT b.id, b.title, b.stock, COUNT(b.id) as freq "
+                        "FROM borrow_records br JOIN books b ON br.book_id = b.id "
+                        "WHERE br.user_id IN (" +
+                        other_users + ") AND br.book_id NOT IN (" + user_books + ") "
+                                                                                 "GROUP BY b.id, b.title, b.stock ORDER BY freq DESC LIMIT 5";
+            if (mysql_query(db.get(), q3.c_str()))
+                throw runtime_error("Query failed: " + string(mysql_error(db.get())));
+            unique_ptr<MYSQL_RES, decltype(&mysql_free_result)> res3(mysql_store_result(db.get()), &mysql_free_result);
+
+            json recs = json::array();
+            MYSQL_ROW row3;
+            while ((row3 = mysql_fetch_row(res3.get())))
+            {
+                recs.push_back({{"id", stoll(row3[0])},
+                                {"title", row3[1]},
+                                {"stock", stoi(row3[2])}});
+            }
+            return {200, recs};
+        }
+        catch (const exception &e)
+        {
+            return {500, {{"success", false}, {"message", "服务器错误: " + string(e.what())}}};
+        }
+    }
 };
 
 int main(void)
@@ -474,20 +676,52 @@ int main(void)
              { handle_request(req, res, [](LibraryService &s, const json &j)
                               { return s.returnBook(j); }); });
 
+    // 获取/搜索图书
     svr.Get("/api/books", [&](const Request &req, Response &res)
             {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Content-Type", "application/json");
-        auto api_res = service.getAllBooks();
+        auto search_term = req.get_param_value("q");
+        auto api_res = service.searchBooks(search_term);
         res.status = api_res.status;
         res.set_content(api_res.body.dump(-1, ' ', false, json::error_handler_t::replace), "application/json; charset=utf-8"); });
 
+    // 获取当前用户的借阅
     svr.Get(R"(/api/user/(\d+)/borrows)", [&](const Request &req, Response &res)
             {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Content-Type", "application/json");
         int userId = stoi(req.matches[1]);
         auto api_res = service.getUserBorrows(userId);
+        res.status = api_res.status;
+        res.set_content(api_res.body.dump(-1, ' ', false, json::error_handler_t::replace), "application/json; charset=utf-8"); });
+
+    // 获取推荐
+    svr.Get(R"(/api/user/(\d+)/recommendations)", [&](const Request &req, Response &res)
+            {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Content-Type", "application/json");
+        int userId = stoi(req.matches[1]);
+        auto api_res = service.getRecommendations(userId);
+        res.status = api_res.status;
+        res.set_content(api_res.body.dump(-1, ' ', false, json::error_handler_t::replace), "application/json; charset=utf-8"); });
+
+    // 获取所有用户
+    svr.Get("/api/admin/users", [&](const Request &req, Response &res)
+            {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Content-Type", "application/json");
+        auto api_res = service.getAllUsers();
+        res.status = api_res.status;
+        res.set_content(api_res.body.dump(-1, ' ', false, json::error_handler_t::replace), "application/json; charset=utf-8"); });
+
+    // 获取指定用户所有借阅记录
+    svr.Get(R"(/api/admin/user/(\d+)/borrows)", [&](const Request &req, Response &res)
+            {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Content-Type", "application/json");
+        int userId = stoi(req.matches[1]);
+        auto api_res = service.getAllUserBorrows(userId);
         res.status = api_res.status;
         res.set_content(api_res.body.dump(-1, ' ', false, json::error_handler_t::replace), "application/json; charset=utf-8"); });
 
