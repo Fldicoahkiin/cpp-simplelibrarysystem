@@ -1,2 +1,27 @@
-build/CMakeFiles/
-build/.cmake/
+# IDE and user-specific files
+.idea/
+.vscode/
+*.suo
+*.user
+*.sln.docstates
+
+# Build artifacts
+build/
+build-*/
+dist/
+*.out
+*.exe
+*.dll
+*.so
+*.dylib
+
+# CMake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles/
+CMakeInstall.cmake
+CTestTestfile.cmake
+cmake_install.cmake
+
+# vcpkg
+vcpkg_installed/

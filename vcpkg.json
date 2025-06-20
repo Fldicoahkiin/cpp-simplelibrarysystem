@@ -1,0 +1,17 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "book-management-system",
+    "version-string": "1.0.0",
+    "dependencies": [
+        {
+            "name": "cpp-httplib",
+            "features": [
+                "openssl"
+            ]
+        },
+        "nlohmann-json",
+        {
+            "name": "libmysql"
+        }
+    ]
+}

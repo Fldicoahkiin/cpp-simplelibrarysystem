@@ -1,6 +1,5 @@
-# GitHub Actions 工作流：自动构建跨平台的可执行文件
-
-name: Build Project
+# GitHub Actions: Build and Release Cross-Platform Executables
+name: Build and Release
 
 # 触发条件：
 # 1. 当代码被推送到 main 分支时
@@ -26,44 +25,94 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 第2步：安装和缓存 vcpkg
-    # 使用官方的 action 来设置 vcpkg
-    # 它会自动缓存 vcpkg，加速后续构建
+    # 第2步：设置 vcpkg
+    # 使用社区推荐的 action "lukka/run-vcpkg"。
+    # 这是关键的修复步骤：
     - name: Setup vcpkg
-      uses: actions/setup-vcpkg@v1
+      uses: lukka/run-vcpkg@v11
       with:
-        # 指定 vcpkg 的 Git 提交哈希，确保构建环境的稳定性
-        vcpkg-commit-id: '15f65b53d60741517a177264a4d952860d5b323e'
+        # Pin vcpkg to a specific commit to ensure stable and reproducible builds.
+        # This prevents failures caused by breaking changes in the vcpkg repository.
+        vcpkgGitCommitId: 'ef7dbf94b9198bc58f45951adcf1f041fcbc5ea0'
 
-    # 第3步：使用 vcpkg 安装依赖库
-    - name: Install dependencies
-      run: |
-        vcpkg install cpp-httplib[openssl] nlohmann-json mysql-connector-c
-
-    # 第4步：配置 CMake
-    # -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake 是关键
-    # 它告诉 CMake 使用 vcpkg 来寻找所有依赖库
+    # 第3步：配置 CMake
+    # -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake 是关键。
+    # 它告诉 CMake 使用 vcpkg 来寻找所有依赖库。
+    # vcpkg 工具链会自动运行 vcpkg install 来安装 vcpkg.json 中定义的依赖。
     - name: Configure CMake
       run: |
-        cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+        cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+      shell: bash # 强制使用 bash, 确保 $VCPKG_ROOT 在所有平台都能被正确解析
 
-    # 第5步：编译项目
-    # --config Release 指定编译发布版本
+    # 第4步：编译项目
+    # --config Release 指定编译发布版本。
     - name: Build project
       run: |
         cmake --build build --config Release
 
-    # 第6步：上传构建产物
-    # 将编译好的可执行文件打包，方便下载
+    # 第5步：上传构建产物
+    # 将编译好的可执行文件打包，方便后续的 release 任务使用。
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        # 产物的名称，例如 "build-windows"
+        # 产物的名称，例如 "build-windows-latest"
         name: build-${{ matrix.os }}
-        # 要上传的文件路径
+        # 要上传的文件路径。
         # Windows 的路径是 build/Release/server.exe
         # macOS/Linux 的路径是 build/server
         path: |
           build/Release/server.exe
           build/server
-        if-no-files-found: ignore # 如果文件未找到，则忽略此步骤 
+        if-no-files-found: ignore # 如果文件未找到，则忽略此步骤
+
+  release:
+    # release 任务依赖于 build 任务，在所有 build 成功后运行。
+    needs: build
+    runs-on: ubuntu-latest
+    # 需要写权限来创建 Release 和上传产物。
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-windows-latest
+          path: artifacts/windows
+
+      - name: Download macos artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-macos-latest
+          path: artifacts/macos
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Prepare release assets
+        run: |
+          set -x # 打印执行的命令
+          # 将产物移动到根目录并重命名，方便上传
+          if [ -f "artifacts/windows/Release/server.exe" ]; then
+            mv artifacts/windows/Release/server.exe ./server-windows.exe
+          fi
+          if [ -f "artifacts/macos/server" ]; then
+            mv artifacts/macos/server ./server-macos
+          fi
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          # 上传重命名后的文件
+          files: |
+            server-windows.exe
+            server-macos
+          # 使用 UTC 时间作为发布标签，例如 Release-2025-06-21-10-30
+          tag_name: Release-${{ env.RELEASE_DATE }}
+          name: Release ${{ env.RELEASE_DATE }}
+          body: |
+            Automated release from commit ${{ github.sha }}
+        # 设置环境变量，供上一步使用
+        env:
+          RELEASE_DATE: $(date -u +"%Y-%m-%d-%H-%M")
