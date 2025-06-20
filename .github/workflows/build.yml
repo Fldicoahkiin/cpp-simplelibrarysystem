@@ -91,8 +91,8 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          set -x # 打印执行的命令
-          # 将产物移动到根目录并重命名，方便上传
+          set -x
+          # Move and rename artifacts for the release
           if [ -f "artifacts/windows/Release/server.exe" ]; then
             mv artifacts/windows/Release/server.exe ./server-windows.exe
           fi
@@ -100,11 +100,17 @@ jobs:
             mv artifacts/macos/server ./server-macos
           fi
 
+      - name: Set release date env
+        id: set_release_date
+        run: |
+          export TZ='Asia/Shanghai'
+          echo "RELEASE_DATE=$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_ENV
+        shell: bash
+
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          # 上传重命名后的文件
           files: |
             server-windows.exe
             server-macos
@@ -113,6 +119,3 @@ jobs:
           name: Release ${{ env.RELEASE_DATE }}
           body: |
             Automated release from commit ${{ github.sha }}
-        # 设置环境变量，供上一步使用
-        env:
-          RELEASE_DATE: $(date -u +"%Y-%m-%d-%H-%M")
