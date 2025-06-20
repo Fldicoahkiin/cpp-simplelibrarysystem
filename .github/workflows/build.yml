@@ -113,16 +113,25 @@ jobs:
           fi
         shell: bash
 
-      # 第5步：创建 GitHub Release
-      # 使用 softprops/action-gh-release action 来自动创建版本并上传文件。
+      # 第5步：生成发布信息
+      # 在一个独立的步骤中运行shell命令来生成标签和发布名称。
+      # 这比在 action 的 'with' 块中直接内联shell命令更可靠。
+      - name: 生成发布标签和名称
+        run: |
+          echo "RELEASE_TAG=Release-$(TZ='Asia/Shanghai' date +'%Y-%m-%d-%H%M')" >> $GITHUB_ENV
+          echo "RELEASE_NAME=Release $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M')" >> $GITHUB_ENV
+        shell: bash
+
+      # 第6步：创建 GitHub Release
+      # 使用上一步生成的环境变量来创建版本。
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             server-windows.exe
             server-macos
-          tag_name: Release-$(TZ='Asia/Shanghai' date +'%Y-%m-%d-%H%M')
-          name: Release $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M')
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_NAME }}
           body: |
             由 commit ${{ github.sha }} 自动触发的构建产物。
         env:
