@@ -18,6 +18,9 @@ endif()
 
 add_executable(server server.cpp)
 
+# 在编译时，自动将 index.html 复制到构建目录
+file(COPY index.html DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
 # 链接所有库
 target_link_libraries(server PRIVATE
     httplib::httplib

@@ -1,4 +1,3 @@
-#define CPPHTTPLIB_OPENSSL_SUPPORT
 #include <fstream>
 #include <httplib.h>
 #include <iostream>
@@ -9,9 +8,10 @@
 #include <string>
 #include <vector>
 
-using namespace httplib;
+// 使用 nlohmann/json 命名空间
 using json = nlohmann::json;
 using namespace std;
+using namespace httplib;
 
 // MySQL 连接信息
 const string DB_HOST = "127.0.0.1";
