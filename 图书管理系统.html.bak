@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图书管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#0FC6C2',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                },
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .btn-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+            }
+            .form-input-focus {
+                @apply focus:ring-2 focus:ring-primary/50 focus:border-primary;
+            }
+            /* 新增登录相关样式 */
+            .auth-container {
+                @apply max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-8;
+            }
+            .auth-title {
+                @apply text-2xl font-bold text-center text-primary mb-6;
+            }
+            .auth-input {
+                @apply w-full px-4 py-2 border border-gray-300 rounded-lg form-input-focus mb-4;
+            }
+            .auth-btn {
+                @apply w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-6 rounded-lg btn-hover;
+            }
+            .auth-link {
+                @apply text-primary hover:text-primary/80 text-sm text-center mt-4 block;
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-neutral min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- 登录/注册模态框 -->
+        <div id="authModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div class="auth-container">
+                <!-- 登录表单 -->
+                <div id="loginForm">
+                    <h2 class="auth-title">用户登录</h2>
+                    <input type="text" id="loginUsername" placeholder="用户名" class="auth-input">
+                    <input type="password" id="loginPassword" placeholder="密码" class="auth-input">
+                    <button onclick="login()" class="auth-btn">
+                        <i class="fa fa-sign-in mr-2"></i> 登录
+                    </button>
+                    <a href="#" onclick="showRegisterForm()" class="auth-link">没有账号？立即注册</a>
+                </div>
+                
+                <!-- 注册表单 -->
+                <div id="registerForm" class="hidden">
+                    <h2 class="auth-title">用户注册</h2>
+                    <input type="text" id="registerUsername" placeholder="用户名" class="auth-input">
+                    <input type="password" id="registerPassword" placeholder="密码" class="auth-input">
+                    <input type="password" id="registerConfirmPassword" placeholder="确认密码" class="auth-input">
+                    <button onclick="register()" class="auth-btn">
+                        <i class="fa fa-user-plus mr-2"></i> 注册
+                    </button>
+                    <a href="#" onclick="showLoginForm()" class="auth-link">已有账号？立即登录</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 顶部导航栏 -->
+        <header class="mb-8">
+            <div class="bg-white rounded-xl shadow-md p-6 flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <i class="fa fa-book text-primary text-3xl"></i>
+                    <h1 class="text-2xl font-bold text-dark">图书管理系统</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- 用户信息区域 -->
+                    <div id="userInfo" class="hidden">
+                        <span class="text-sm text-gray-500 mr-3">
+                            <i class="fa fa-user mr-1"></i> 
+                            <span id="currentUsername"></span>
+                        </span>
+                        <button onclick="logout()" class="text-sm text-red-500 hover:text-red-700">
+                            <i class="fa fa-sign-out mr-1"></i> 退出
+                        </button>
+                    </div>
+                    
+                    <!-- 统计数据 -->
+                    <div class="hidden md:flex items-center space-x-4">
+                        <span class="text-sm text-gray-500">
+                            <i class="fa fa-users mr-1"></i> 在线用户: <span id="online-users">0</span>
+                        </span>
+                        <span class="text-sm text-gray-500">
+                            <i class="fa fa-book mr-1"></i> 馆藏图书: <span id="total-books">0</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <main id="mainContent" class="grid grid-cols-1 lg:grid-cols-4 gap-6 hidden">
+            <!-- 侧边菜单 -->
+            <aside class="lg:col-span-1">
+                <div class="bg-white rounded-xl shadow-md p-4 h-full">
+                    <h2 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-100">操作菜单</h2>
+                    <nav class="space-y-1">
+                        <button onclick="showForm('addBook')" class="w-full text-left py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center">
+                            <i class="fa fa-plus-circle text-primary mr-2"></i> 添加图书
+                        </button>
+                        <button onclick="showForm('queryBook')" class="w-full text-left py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center">
+                            <i class="fa fa-search text-primary mr-2"></i> 查询图书
+                        </button>
+                        <button onclick="showForm('addUser')" class="w-full text-left py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center">
+                            <i class="fa fa-user-plus text-primary mr-2"></i> 添加用户
+                        </button>
+                        <button onclick="showForm('borrowBook')" class="w-full text-left py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center">
+                            <i class="fa fa-exchange text-primary mr-2"></i> 借阅图书
+                        </button>
+                        <button onclick="showForm('returnBook')" class="w-full text-left py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center">
+                            <i class="fa fa-undo text-primary mr-2"></i> 归还图书
+                        </button>
+                        <button onclick="showForm('showUserBorrows')" class="w-full text-left py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center">
+                            <i class="fa fa-list-alt text-primary mr-2"></i> 借阅记录
+                        </button>
+                        <button onclick="listAllBooks()" class="w-full text-left py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center">
+                            <i class="fa fa-book text-primary mr-2"></i> 所有图书
+                        </button>
+                        <button onclick="exitSystem()" class="w-full text-left py-2 px-4 rounded-lg hover:bg-primary/10 transition-all duration-200 flex items-center">
+                            <i class="fa fa-sign-out text-primary mr-2"></i> 退出系统
+                        </button>
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- 主操作区 -->
+            <section class="lg:col-span-3">
+                <!-- 表单区域 -->
+                <div id="addBook" class="form bg-white rounded-xl shadow-md p-6 mb-6 hidden">
+                    <h2 class="text-xl font-semibold mb-4 pb-2 border-b border-gray-100 flex items-center">
+                        <i class="fa fa-plus-circle text-primary mr-2"></i> 添加图书
+                    </h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="addBookId" class="block text-sm font-medium text-gray-700 mb-1">图书 ID</label>
+                            <input type="number" id="addBookId" placeholder="请输入图书 ID" class="w-full px-4 py-2 border border-gray-300 rounded-lg form-input-focus">
+                        </div>
+                        <div>
+                            <label for="addBookTitle" class="block text-sm font-medium text-gray-700 mb-1">图书标题</label>
+                            <input type="text" id="addBookTitle" placeholder="请输入图书标题" class="w-full px-4 py-2 border border-gray-300 rounded-lg form-input-focus">
+                        </div>
+                        <div>
+                            <label for="addBookStock" class="block text-sm font-medium text-gray-700 mb-1">库存数量</label>
+                            <input type="number" id="addBookStock" placeholder="请输入库存数量" class="w-full px-4 py-2 border border-gray-300 rounded-lg form-input-focus">
+                        </div>
+                        <div class="pt-2">
+                            <button onclick="addBook()" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-6 rounded-lg btn-hover flex items-center">
+                                <i class="fa fa-check mr-2"></i> 提交
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 其他表单区域保持不变... -->
+
+                <!-- 结果显示区域 -->
+                <div class="result bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 pb-2 border-b border-gray-100 flex items-center">
+                        <i class="fa fa-info-circle text-primary mr-2"></i> 操作结果
+                    </h2>
+                    <div id="result" class="prose max-w-none">
+                        <p class="text-gray-500">欢迎使用图书管理系统，请从左侧菜单选择操作。</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 页脚 -->
+        <footer id="footer" class="mt-8 text-center text-sm text-gray-500 hidden">
+            <p>© 2025 图书管理系统 | 本网页由杜桂羽设计与开发</p>
+        </footer>
+    </div>
+
+    <!-- 加载动画 -->
+    <div id="loading" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-6 flex items-center space-x-4">
+            <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+            <p class="font-medium text-gray-700">处理中，请稍候...</p>
+        </div>
+    </div>
+
+    <script>
+        // 显示登录表单
+        function showLoginForm() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+        }
+
+        // 显示注册表单
+        function showRegisterForm() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+        }
+
+        // 显示认证模态框
+        function showAuthModal() {
+            document.getElementById('authModal').classList.remove('hidden');
+            showLoginForm();
+        }
+
+        // 隐藏认证模态框
+        function hideAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+        }
+
+        // 检查登录状态
+        function checkLogin() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showAuthModal();
+                // 隐藏主内容区
+                document.getElementById('mainContent').classList.add('hidden');
+                document.getElementById('footer').classList.add('hidden');
+            } else {
+                // 显示用户信息和主内容区
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('mainContent').classList.remove('hidden');
+                document.getElementById('footer').classList.remove('hidden');
+                // 获取用户信息
+                fetchUserInfo();
+            }
+        }
+
+        // 用户登录
+        function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                showError('请输入用户名和密码');
+                return;
+            }
+            
+            showLoading();
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('登录失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideLoading();
+                if (data.token) {
+                    // 保存token和用户信息
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('username', username);
+                    // 更新UI
+                    document.getElementById('currentUsername').textContent = username;
+                    // 隐藏模态框
+                    hideAuthModal();
+                    // 显示主界面
+                    checkLogin();
+                    showSuccess('登录成功！');
+                } else {
+                    showError(data.message || '登录失败');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('用户名或密码错误');
+                console.error('Error:', error);
+            });
+        }
+
+        // 用户注册
+        function register() {
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            
+            if (!username || !password || !confirmPassword) {
+                showError('请填写完整的注册信息');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('两次输入的密码不一致');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError('密码长度不能少于6位');
+                return;
+            }
+            
+            showLoading();
+            fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('注册失败');
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    showSuccess('注册成功！请登录');
+                    showLoginForm();
+                    // 清空注册表单
+                    document.getElementById('registerUsername').value = '';
+                    document.getElementById('registerPassword').value = '';
+                    document.getElementById('registerConfirmPassword').value = '';
+                } else {
+                    showError(data.message || '注册失败');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('用户名已存在或网络错误');
+                console.error('Error:', error);
+            });
+        }
+
+        // 获取用户信息
+        function fetchUserInfo() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            
+            fetch('/api/auth/user', {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.username) {
+                    document.getElementById('currentUsername').textContent = data.username;
+                }
+            })
+            .catch(error => {
+                console.error('获取用户信息失败:', error);
+            });
+        }
+
+        // 用户退出
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            // 刷新页面
+            location.reload();
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查登录状态
+            checkLogin();
+            
+            // 更新统计信息
+            updateStats();
+            
+            // 添加表单输入验证
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    if (this.value.trim() !== '') {
+                        this.classList.add('border-green-500');
+                        this.classList.remove('border-red-500');
+                    } else {
+                        this.classList.remove('border-green-500');
+                        this.classList.remove('border-red-500');
+                    }
+                });
+            });
+        });
+
+        // 其他原有函数保持不变...
+    </script>
+</body>
+</html>

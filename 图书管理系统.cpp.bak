@@ -1,0 +1,380 @@
+#include <iostream>
+#include <fstream>
+#include <cstring>
+using namespace std;
+
+// 最大常量定义
+const int MAX_BOOKS = 1000;
+const int MAX_USERS = 500;
+const int MAX_BORROWS = 2000;
+const int MAX_NAME_LENGTH = 50;
+const int MAX_TITLE_LENGTH = 100;
+const char* BOOK_FILE = "books.dat";
+const char* USER_FILE = "users.dat";
+const char* BORROW_FILE = "borrows.dat";
+
+// 图书结构体
+struct Book {
+    int id;
+    char title[MAX_TITLE_LENGTH];
+    int stock;
+    bool available;
+};
+
+// 用户结构体
+struct User {
+    int id;
+    char name[MAX_NAME_LENGTH];
+};
+
+// 借阅记录结构体
+struct BorrowRecord {
+    int userId;
+    int bookId;
+    bool returned;
+};
+
+// 图书馆系统类
+class LibrarySystem {
+private:
+    Book books[MAX_BOOKS];
+    User users[MAX_USERS];
+    BorrowRecord borrows[MAX_BORROWS];
+    int bookCount;
+    int userCount;
+    int borrowCount;
+
+    // 查找图书索引
+    int findBookIndex(int id) {
+        for (int i = 0; i < bookCount; i++) {
+            if (books[i].id == id) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // 查找用户索引
+    int findUserIndex(int id) {
+        for (int i = 0; i < userCount; i++) {
+            if (users[i].id == id) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // 查找借阅记录索引
+    int findBorrowIndex(int userId, int bookId) {
+        for (int i = 0; i < borrowCount; i++) {
+            if (borrows[i].userId == userId && borrows[i].bookId == bookId && !borrows[i].returned) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+public:
+    LibrarySystem() : bookCount(0), userCount(0), borrowCount(0) {
+        loadData();
+    }
+
+    ~LibrarySystem() {
+        saveData();
+    }
+
+    // 添加图书
+    void addBook(int id, const char* title, int stock) {
+        if (bookCount >= MAX_BOOKS) {
+            cout << "图书容量已满，无法添加更多图书！" << endl;
+            return;
+        }
+
+        if (findBookIndex(id) != -1) {
+            cout << "图书ID已存在！" << endl;
+            return;
+        }
+
+        Book& book = books[bookCount++];
+        book.id = id;
+        strncpy(book.title, title, MAX_TITLE_LENGTH - 1);
+        book.title[MAX_TITLE_LENGTH - 1] = '\0';
+        book.stock = stock;
+        book.available = true;
+        cout << "图书添加成功！" << endl;
+    }
+
+    // 查询图书
+    void queryBook(int id) {
+        int index = findBookIndex(id);
+        if (index == -1) {
+            cout << "未找到该图书！" << endl;
+            return;
+        }
+
+        Book& book = books[index];
+        cout << "图书ID: " << book.id << endl;
+        cout << "书名: " << book.title << endl;
+        cout << "库存: " << book.stock << endl;
+        cout << "状态: " << (book.available ? "可借" : "不可借") << endl;
+    }
+
+    // 添加用户
+    void addUser(int id, const char* name) {
+        if (userCount >= MAX_USERS) {
+            cout << "用户容量已满，无法添加更多用户！" << endl;
+            return;
+        }
+
+        if (findUserIndex(id) != -1) {
+            cout << "用户ID已存在！" << endl;
+            return;
+        }
+
+        User& user = users[userCount++];
+        user.id = id;
+        strncpy(user.name, name, MAX_NAME_LENGTH - 1);
+        user.name[MAX_NAME_LENGTH - 1] = '\0';
+        cout << "用户添加成功！" << endl;
+    }
+
+    // 借书
+    void borrowBook(int userId, int bookId) {
+        int userIndex = findUserIndex(userId);
+        if (userIndex == -1) {
+            cout << "用户不存在！" << endl;
+            return;
+        }
+
+        int bookIndex = findBookIndex(bookId);
+        if (bookIndex == -1) {
+            cout << "图书不存在！" << endl;
+            return;
+        }
+
+        Book& book = books[bookIndex];
+        if (book.stock <= 0) {
+            cout << "该图书库存不足！" << endl;
+            return;
+        }
+
+        if (findBorrowIndex(userId, bookId) != -1) {
+            cout << "该用户已借阅此书且未归还！" << endl;
+            return;
+        }
+
+        if (borrowCount >= MAX_BORROWS) {
+            cout << "借阅记录已满，无法添加更多记录！" << endl;
+            return;
+        }
+
+        BorrowRecord& record = borrows[borrowCount++];
+        record.userId = userId;
+        record.bookId = bookId;
+        record.returned = false;
+
+        book.stock--;
+        if (book.stock == 0) {
+            book.available = false;
+        }
+
+        cout << "借书成功！" << endl;
+    }
+
+    // 还书
+    void returnBook(int userId, int bookId) {
+        int recordIndex = findBorrowIndex(userId, bookId);
+        if (recordIndex == -1) {
+            cout << "未找到该借阅记录！" << endl;
+            return;
+        }
+
+        borrows[recordIndex].returned = true;
+
+        int bookIndex = findBookIndex(bookId);
+        books[bookIndex].stock++;
+        books[bookIndex].available = true;
+
+        cout << "还书成功！" << endl;
+    }
+
+    // 查看用户借阅记录
+    void showUserBorrows(int userId) {
+        int userIndex = findUserIndex(userId);
+        if (userIndex == -1) {
+            cout << "用户不存在！" << endl;
+            return;
+        }
+
+        cout << "用户 " << users[userIndex].name << " 的借阅记录：" << endl;
+        bool hasRecord = false;
+
+        for (int i = 0; i < borrowCount; i++) {
+            if (borrows[i].userId == userId && !borrows[i].returned) {
+                int bookIndex = findBookIndex(borrows[i].bookId);
+                cout << "图书ID: " << borrows[i].bookId 
+                     << " 书名: " << books[bookIndex].title << endl;
+                hasRecord = true;
+            }
+        }
+
+        if (!hasRecord) {
+            cout << "该用户没有未归还的图书！" << endl;
+        }
+    }
+
+    // 保存数据到文件
+    void saveData() {
+        ofstream bookFile(BOOK_FILE, ios::binary);
+        if (bookFile) {
+            bookFile.write((char*)&bookCount, sizeof(int));
+            bookFile.write((char*)books, sizeof(Book) * bookCount);
+            bookFile.close();
+        }
+
+        ofstream userFile(USER_FILE, ios::binary);
+        if (userFile) {
+            userFile.write((char*)&userCount, sizeof(int));
+            userFile.write((char*)users, sizeof(User) * userCount);
+            userFile.close();
+        }
+
+        ofstream borrowFile(BORROW_FILE, ios::binary);
+        if (borrowFile) {
+            borrowFile.write((char*)&borrowCount, sizeof(int));
+            borrowFile.write((char*)borrows, sizeof(BorrowRecord) * borrowCount);
+            borrowFile.close();
+        }
+    }
+
+    // 从文件加载数据
+    void loadData() {
+        ifstream bookFile(BOOK_FILE, ios::binary);
+        if (bookFile) {
+            bookFile.read((char*)&bookCount, sizeof(int));
+            bookFile.read((char*)books, sizeof(Book) * bookCount);
+            bookFile.close();
+        }
+
+        ifstream userFile(USER_FILE, ios::binary);
+        if (userFile) {
+            userFile.read((char*)&userCount, sizeof(int));
+            userFile.read((char*)users, sizeof(User) * userCount);
+            userFile.close();
+        }
+
+        ifstream borrowFile(BORROW_FILE, ios::binary);
+        if (borrowFile) {
+            borrowFile.read((char*)&borrowCount, sizeof(int));
+            borrowFile.read((char*)borrows, sizeof(BorrowRecord) * borrowCount);
+            borrowFile.close();
+        }
+    }
+
+// 在LibrarySystem类中添加方法
+void listAllBooks() {
+    if (bookCount == 0) {
+        cout << "图书馆中没有图书！" << endl;
+        return;
+    }
+    cout << "===== 所有图书列表 =====" << endl;
+    for (int i = 0; i < bookCount; i++) {
+        cout << "图书ID: " << books[i].id << endl;
+        cout << "书名: " << books[i].title << endl;
+        cout << "库存: " << books[i].stock << endl;
+        cout << "状态: " << (books[i].available ? "可借" : "不可借") << endl;
+        cout << "-----------------------" << endl;
+    }
+}
+    // 显示菜单
+    void showMenu() {
+        cout << "\n===== 图书馆管理系统 =====" << endl;
+        cout << "1. 添加图书" << endl;
+        cout << "2. 查询图书" << endl;
+        cout << "3. 添加用户" << endl;
+        cout << "4. 借书" << endl;
+        cout << "5. 还书" << endl;
+        cout << "6. 查看用户借阅记录" << endl;
+        cout << "7. 查询所有图书" << endl;  // 新增选项
+        cout << "0. 退出系统" << endl;
+        cout << "=========================" << endl;
+        cout << "请选择操作: ";
+    }
+};
+
+// 主函数
+int main() {
+    LibrarySystem library;
+    int choice;
+    
+    do {
+        library.showMenu();
+        cin >> choice;
+        
+        switch (choice) {
+            case 1: {
+                int id, stock;
+                char title[MAX_TITLE_LENGTH];
+                cout << "输入图书ID: ";
+                cin >> id;
+                cout << "输入书名: ";
+                cin.ignore();
+                cin.getline(title, MAX_TITLE_LENGTH);
+                cout << "输入库存数量: ";
+                cin >> stock;
+                library.addBook(id, title, stock);
+                break;
+            }
+            case 2: {
+                int id;
+                cout << "输入要查询的图书ID: ";
+                cin >> id;
+                library.queryBook(id);
+                break;
+            }
+            case 3: {
+                int id;
+                char name[MAX_NAME_LENGTH];
+                cout << "输入用户ID: ";
+                cin >> id;
+                cout << "输入用户名: ";
+                cin.ignore();
+                cin.getline(name, MAX_NAME_LENGTH);
+                library.addUser(id, name);
+                break;
+            }
+            case 4: {
+                int userId, bookId;
+                cout << "输入用户ID: ";
+                cin >> userId;
+                cout << "输入图书ID: ";
+                cin >> bookId;
+                library.borrowBook(userId, bookId);
+                break;
+            }
+            case 5: {
+                int userId, bookId;
+                cout << "输入用户ID: ";
+                cin >> userId;
+                cout << "输入图书ID: ";
+                cin >> bookId;
+                library.returnBook(userId, bookId);
+                break;
+            }
+            case 6: {
+                int userId;
+                cout << "输入用户ID: ";
+                cin >> userId;
+                library.showUserBorrows(userId);
+                break;
+            }
+            case 0:
+                cout << "感谢使用图书馆管理系统！" << endl;
+                break;
+            default:
+                cout << "无效选择，请重新输入！" << endl;
+        }
+    } while (choice != 0);
+
+    return 0;
+}

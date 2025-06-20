@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图书管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #165DFF;
+        }
+
+        .form-input-focus:focus {
+            --tw-ring-color: var(--primary-color);
+        }
+
+        .btn-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body class="font-sans bg-gray-50 min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8 max-w-7xl">
+
+        <!-- 认证模态框 -->
+        <div id="authModal"
+            class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity duration-300">
+            <div id="authContainer"
+                class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md transform transition-all duration-300 scale-95 opacity-0">
+                <!-- 登录表单 -->
+                <div id="loginForm">
+                    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">用户登录</h2>
+                    <input type="text" id="loginUsername" placeholder="用户名"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent form-input-focus mb-4">
+                    <input type="password" id="loginPassword" placeholder="密码"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent form-input-focus mb-4">
+                    <button onclick="api.login()"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg btn-hover transition-all">
+                        <i class="fa fa-sign-in mr-2"></i> 登录
+                    </button>
+                    <a href="#" onclick="ui.showRegisterForm()"
+                        class="text-blue-600 hover:text-blue-500 text-sm text-center mt-4 block">没有账号？立即注册</a>
+                </div>
+
+                <!-- 注册表单 -->
+                <div id="registerForm" class="hidden">
+                    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">用户注册</h2>
+                    <input type="text" id="registerUsername" placeholder="用户名"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent form-input-focus mb-4">
+                    <input type="password" id="registerPassword" placeholder="密码 (至少6位)"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent form-input-focus mb-4">
+                    <button onclick="api.register()"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg btn-hover transition-all">
+                        <i class="fa fa-user-plus mr-2"></i> 注册
+                    </button>
+                    <a href="#" onclick="ui.showLoginForm()"
+                        class="text-blue-600 hover:text-blue-500 text-sm text-center mt-4 block">已有账号？立即登录</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <main id="mainContent" class="hidden">
+            <header class="mb-8">
+                <div class="bg-white rounded-xl card-shadow p-5 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa fa-book text-blue-600 text-3xl"></i>
+                        <h1 class="text-2xl font-bold text-gray-800">图书管理系统</h1>
+                    </div>
+                    <div id="userInfo" class="flex items-center space-x-4">
+                        <span class="text-sm text-gray-600"><i class="fa fa-user mr-1"></i>欢迎, <span
+                                id="currentUsername" class="font-medium"></span></span>
+                        <button onclick="api.logout()" class="text-sm text-red-500 hover:text-red-700 font-medium">
+                            <i class="fa fa-sign-out mr-1"></i>退出
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <aside class="lg:col-span-1">
+                    <div class="bg-white rounded-xl card-shadow p-5 h-full">
+                        <h2 class="text-lg font-semibold mb-4 pb-2 border-b text-gray-700">操作菜单</h2>
+                        <nav class="space-y-2">
+                            <button onclick="ui.showForm('allBooks')"
+                                class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
+                                    class="fa fa-book w-6 text-center text-blue-600 mr-2"></i> 所有图书</button>
+                            <button onclick="ui.showForm('addBook')"
+                                class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
+                                    class="fa fa-plus-circle w-6 text-center text-blue-600 mr-2"></i> 添加图书</button>
+                            <button onclick="ui.showForm('borrowBook')"
+                                class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
+                                    class="fa fa-exchange w-6 text-center text-blue-600 mr-2"></i> 借阅图书</button>
+                            <button onclick="ui.showForm('returnBook')"
+                                class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
+                                    class="fa fa-undo w-6 text-center text-blue-600 mr-2"></i> 归还图书</button>
+                            <button onclick="ui.showForm('myBorrows')"
+                                class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
+                                    class="fa fa-list-alt w-6 text-center text-blue-600 mr-2"></i> 我的借阅</button>
+                        </nav>
+                    </div>
+                </aside>
+
+                <section class="lg:col-span-3">
+                    <div class="bg-white rounded-xl card-shadow p-6 min-h-[300px]">
+                        <!-- 所有图书 -->
+                        <div id="allBooks" class="form-section">
+                            <h2 class="text-xl font-semibold mb-4 flex items-center"><i
+                                    class="fa fa-book text-blue-600 mr-3"></i>馆藏图书</h2>
+                            <div id="allBooksResult" class="prose max-w-none"></div>
+                        </div>
+                        <!-- 添加图书 -->
+                        <div id="addBook" class="form-section">
+                            <h2 class="text-xl font-semibold mb-4 flex items-center"><i
+                                    class="fa fa-plus-circle text-blue-600 mr-3"></i>添加图书</h2>
+                            <div class="space-y-4">
+                                <input type="text" id="addBookTitle" placeholder="图书标题"
+                                    class="w-full px-4 py-2 border rounded-lg form-input-focus">
+                                <input type="number" id="addBookStock" placeholder="库存数量"
+                                    class="w-full px-4 py-2 border rounded-lg form-input-focus">
+                                <button onclick="api.addBook()"
+                                    class="bg-blue-600 text-white py-2 px-5 rounded-lg btn-hover transition-all">提交</button>
+                            </div>
+                        </div>
+                        <!-- 借阅图书 -->
+                        <div id="borrowBook" class="form-section">
+                            <h2 class="text-xl font-semibold mb-4 flex items-center"><i
+                                    class="fa fa-exchange text-blue-600 mr-3"></i>借阅图书</h2>
+                            <div class="space-y-4">
+                                <input type="number" id="borrowBookId" placeholder="图书 ID"
+                                    class="w-full px-4 py-2 border rounded-lg form-input-focus">
+                                <button onclick="api.borrowBook()"
+                                    class="bg-blue-600 text-white py-2 px-5 rounded-lg btn-hover transition-all">借阅</button>
+                            </div>
+                        </div>
+                        <!-- 归还图书 -->
+                        <div id="returnBook" class="form-section">
+                            <h2 class="text-xl font-semibold mb-4 flex items-center"><i
+                                    class="fa fa-undo text-blue-600 mr-3"></i>归还图书</h2>
+                            <div class="space-y-4">
+                                <input type="number" id="returnBookId" placeholder="图书 ID"
+                                    class="w-full px-4 py-2 border rounded-lg form-input-focus">
+                                <button onclick="api.returnBook()"
+                                    class="bg-blue-600 text-white py-2 px-5 rounded-lg btn-hover transition-all">归还</button>
+                            </div>
+                        </div>
+                        <!-- 我的借阅 -->
+                        <div id="myBorrows" class="form-section">
+                            <h2 class="text-xl font-semibold mb-4 flex items-center"><i
+                                    class="fa fa-list-alt text-blue-600 mr-3"></i>我的借阅</h2>
+                            <div id="myBorrowsResult" class="prose max-w-none"></div>
+                        </div>
+                        <!-- 通用结果显示区 -->
+                        <div id="result" class="prose max-w-none mt-4"></div>
+                    </div>
+                </section>
+            </div>
+            <footer class="mt-8 text-center text-sm text-gray-500">
+                <p>© 2024 图书管理系统</p>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/api';
+
+        const store = {
+            user: null,
+            token: null
+        };
+
+        const ui = {
+            showLoginForm() {
+                document.getElementById('loginForm').classList.remove('hidden');
+                document.getElementById('registerForm').classList.add('hidden');
+            },
+            showRegisterForm() {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('registerForm').classList.remove('hidden');
+            },
+            showAuthModal() {
+                document.getElementById('authModal').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('authModal').classList.add('opacity-100');
+                    document.getElementById('authContainer').classList.add('scale-100', 'opacity-100');
+                }, 10);
+            },
+            hideAuthModal() {
+                document.getElementById('authModal').classList.remove('opacity-100');
+                document.getElementById('authContainer').classList.remove('scale-100', 'opacity-100');
+                setTimeout(() => document.getElementById('authModal').classList.add('hidden'), 300);
+            },
+            showForm(formId) {
+                document.querySelectorAll('.form-section').forEach(form => form.classList.remove('active'));
+                document.getElementById(formId).classList.add('active');
+                this.clearResult();
+                if (formId === 'allBooks') api.getAllBooks();
+                if (formId === 'myBorrows') api.getMyBorrows();
+            },
+            renderResult(html) {
+                document.getElementById('result').innerHTML = html;
+            },
+            clearResult() {
+                this.renderResult('');
+            },
+            renderAllBooks(books) {
+                const target = document.getElementById('allBooksResult');
+                if (books.length === 0) {
+                    target.innerHTML = '<p>图书馆里还没有书。</p>';
+                    return;
+                }
+                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">ID</th><th class="p-2">标题</th><th class="p-2">库存</th></tr></thead><tbody>';
+                books.forEach(book => {
+                    table += `<tr class="border-b"><td class="p-2">${book.id}</td><td class="p-2">${book.title}</td><td class="p-2">${book.stock}</td></tr>`;
+                });
+                table += '</tbody></table>';
+                target.innerHTML = table;
+            },
+            renderMyBorrows(borrows) {
+                const target = document.getElementById('myBorrowsResult');
+                if (borrows.length === 0) {
+                    target.innerHTML = '<p>您当前没有借阅任何书籍。</p>';
+                    return;
+                }
+                let list = '<ul class="list-disc pl-5">';
+                borrows.forEach(b => list += `<li>ID: ${b.id} - ${b.title}</li>`);
+                list += '</ul>';
+                target.innerHTML = list;
+            },
+            showSuccess(message) { this.renderResult(`<div class="text-green-600">${message}</div>`) },
+            showError(message) { this.renderResult(`<div class="text-red-600">${message}</div>`) }
+        };
+
+        const api = {
+            async handleFetch(url, options = {}) {
+                try {
+                    const response = await fetch(url, options);
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.message || '请求失败');
+                    }
+                    return data;
+                } catch (error) {
+                    ui.showError(error.message);
+                    throw error;
+                }
+            },
+            async register() {
+                const username = document.getElementById('registerUsername').value;
+                const password = document.getElementById('registerPassword').value;
+                if (password.length < 6) { ui.showError('密码长度不能少于6位'); return; }
+
+                try {
+                    await this.handleFetch(`${API_BASE_URL}/auth/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    ui.showSuccess('注册成功！请登录。');
+                    ui.showLoginForm();
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            async login() {
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                if (!username || !password) { ui.showError('请输入用户名和密码'); return; }
+
+                try {
+                    const data = await this.handleFetch(`${API_BASE_URL}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    store.user = { id: data.userId, username: data.username };
+                    store.token = data.token;
+                    localStorage.setItem('libraryUser', JSON.stringify(store.user));
+                    localStorage.setItem('libraryToken', store.token);
+                    initApp();
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            logout() {
+                store.user = null;
+                store.token = null;
+                localStorage.removeItem('libraryUser');
+                localStorage.removeItem('libraryToken');
+                location.reload();
+            },
+            async getAllBooks() {
+                try {
+                    const books = await this.handleFetch(`${API_BASE_URL}/books`);
+                    ui.renderAllBooks(books);
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            async addBook() {
+                const title = document.getElementById('addBookTitle').value;
+                const stock = parseInt(document.getElementById('addBookStock').value);
+                if (!title || isNaN(stock) || stock < 0) { ui.showError('请输入有效的图书信息。'); return; }
+
+                try {
+                    const data = await this.handleFetch(`${API_BASE_URL}/books`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title, stock })
+                    });
+                    ui.showSuccess(`图书《${data.book.title}》已成功添加！`);
+                    document.getElementById('addBookTitle').value = '';
+                    document.getElementById('addBookStock').value = '';
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            async borrowBook() {
+                const bookId = parseInt(document.getElementById('borrowBookId').value);
+                if (isNaN(bookId)) { ui.showError('请输入有效的图书ID。'); return; }
+
+                try {
+                    await this.handleFetch(`${API_BASE_URL}/borrow`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: store.user.id, bookId: bookId })
+                    });
+                    ui.showSuccess(`图书ID: ${bookId} 借阅成功！`);
+                    document.getElementById('borrowBookId').value = '';
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            async returnBook() {
+                const bookId = parseInt(document.getElementById('returnBookId').value);
+                if (isNaN(bookId)) { ui.showError('请输入有效的图书ID。'); return; }
+
+                try {
+                    await this.handleFetch(`${API_BASE_URL}/return`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: store.user.id, bookId: bookId })
+                    });
+                    ui.showSuccess(`图书ID: ${bookId} 归还成功！`);
+                    document.getElementById('returnBookId').value = '';
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            async getMyBorrows() {
+                try {
+                    const borrows = await this.handleFetch(`${API_BASE_URL}/user/${store.user.id}/borrows`);
+                    ui.renderMyBorrows(borrows);
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            }
+        };
+
+        function initApp() {
+            const savedUser = localStorage.getItem('libraryUser');
+            const savedToken = localStorage.getItem('libraryToken');
+
+            if (savedUser && savedToken) {
+                store.user = JSON.parse(savedUser);
+                store.token = savedToken;
+                document.getElementById('currentUsername').textContent = store.user.username;
+                document.getElementById('mainContent').classList.remove('hidden');
+                ui.hideAuthModal();
+                ui.showForm('allBooks');
+            } else {
+                ui.showAuthModal();
+                document.getElementById('mainContent').classList.add('hidden');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+
+</html>
