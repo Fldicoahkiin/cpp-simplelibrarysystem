@@ -16,7 +16,7 @@ using namespace std;
 // MySQL 连接信息
 const string DB_HOST = "127.0.0.1";
 const string DB_USER = "root";
-const string DB_PASS = "your_password"; // ！！！ 请务必修改为您的数据库密码 ！！！
+const string DB_PASS = "PassW0rd"; // ！！！ 请务必修改为您的数据库密码 ！！！
 const string DB_SCHEMA = "library_db";
 const unsigned int DB_PORT = 3306;
 
