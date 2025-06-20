@@ -69,80 +69,8 @@ vcpkg 将为我们自动处理所有C++库，极大简化了环境搭建。
 
     ```sh
     # Unix-like (macOS, Linux)
-    ./vcpkg install cpp-httplib[openssl] nlohmann-json mysql-connector-c
+    ./vcpkg install cpp-httplib[openssl] nlohmann-json libmysql
 
     # Windows (CMD) - 注意目标平台说明符
-    .\vcpkg.exe install cpp-httplib[openssl]:x64-windows nlohmann-json:x64-windows mysql-connector-c:x64-windows
+    .\vcpkg.exe install cpp-httplib[openssl]:x64-windows nlohmann-json:x64-windows mysql-client:x64-windows
     ```
-
-    *这个过程可能需要一些时间，vcpkg 会自动下载和编译所有内容。*
-
-### 第3步：配置并编译本项目
-
-1. **设置数据库**:
-    - 登录到您的 MySQL 服务器。
-    - 执行项目中的 `init.sql` 脚本来创建数据库和表。
-    - 打开 `server.cpp` 文件，找到 `const string DB_PASS = "your_password";` 这一行，并修改为您的 MySQL 密码。
-
-2. **编译项目 (全平台通用)**:
-    在 **本项目的根目录** (不是vcpkg目录) 打开终端，执行以下命令。
-
-    ```sh
-    # 1. 创建构建目录
-    mkdir -p build && cd build
-
-    # 2. 运行 CMake (关键步骤)
-    #    将 [vcpkg-path] 替换为您vcpkg的实际路径
-    #    例如: ~/dev/vcpkg 或 C:/Users/YourUser/dev/vcpkg
-    cmake .. -DCMAKE_TOOLCHAIN_FILE=[vcpkg-path]/scripts/buildsystems/vcpkg.cmake
-
-    # 3. 编译
-    cmake --build .
-    ```
-
-### 第4步：运行服务器
-
-- 编译成功后，可执行文件位于 `build` 目录下。
-- 运行它：
-
-  ```sh
-  # Windows
-  .\Debug\server.exe
-
-  # macOS / Linux
-  ./server
-  ```
-
-- 服务器将启动在 `http://localhost:8080`。打开浏览器访问即可。
-
----
-
-### 第5步：【推荐】使用 GitHub Actions 自动编译 (一键获取所有平台版本)
-
-如果您不想在自己的电脑上安装复杂的编译环境，或者想轻松地为不同操作系统（Windows, macOS）生成可执行文件，那么使用 GitHub Actions 是最佳选择。
-
-**它是如何工作的？**
-
-当您把代码推送到 GitHub 仓库时，GitHub 会自动启动云端服务器（一台 Windows 和一台 macOS），并按照我们项目中的 `.github/workflows/build.yml` 文件里的指令，完成所有编译步骤，然后将最终的程序打包供您下载。
-
-**作为用户，您需要做什么？**
-
-您只需要将您的项目链接到一个 GitHub 仓库，然后按照以下步骤操作即可。
-
-1. **将代码推送到 GitHub**:
-    - 将本项目的代码上传到您的 GitHub 仓库。
-    - 每当您向 `main` 分支推送新的代码时，构建流程就会自动开始。
-
-2. **查看构建进度**:
-    - 在您的 GitHub 仓库页面上，点击顶部的 **"Actions"** 标签页。
-    - 您会看到一个名为 "Build Project" 的工作流正在运行（黄色图标）或已完成（绿色/红色图标）。
-
-3. **下载编译好的程序**:
-    - 点击进入一个已成功完成（绿色对勾）的工作流。
-    - 在 "Summary" 页面的底部，您会找到一个名为 **"Artifacts"** (构建产物) 的区域。
-    - 这里会列出两个可下载的压缩包：
-      - `build-windows-latest`: **里面包含了 Windows 版本的 `server.exe`**。
-      - `build-macos-latest`: 里面包含了 macOS 版本 `server`。
-    - 点击即可下载，解压后就能直接运行。
-
-通过这个流程，您再也无需关心本地编译环境的差异，可以专注于代码编写，让 GitHub 为您完成所有平台的编译工作。

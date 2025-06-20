@@ -1,10 +1,10 @@
 #define CPPHTTPLIB_OPENSSL_SUPPORT
-#include "httplib.h"
-#include "json.hpp"
+#include <fstream>
+#include <httplib.h>
 #include <iostream>
-#include <memory>
-#include <mysql.h>
-#include <mysqld_error.h>
+#include <mysql/mysql.h>
+#include <mysql/mysqld_error.h>
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
 #include <vector>
