@@ -9,12 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(httplib REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
-# 根据不同平台寻找正确的 MySQL 包
-if(WIN32)
-  find_package(unofficial-mysql REQUIRED)
-else()
-  find_package(unofficial-libmysql REQUIRED)
-endif()
+# 统一查找 libmysql（vcpkg 包名：libmysql），其会生成 unofficial::libmysql::libmysql 目标。
+find_package(unofficial-libmysql REQUIRED)
 
 add_executable(server server.cpp)
 
@@ -25,11 +21,5 @@ file(COPY index.html DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(server PRIVATE
     httplib::httplib
     nlohmann_json::nlohmann_json
-)
-
-# 根据平台链接正确的 MySQL 库
-if(WIN32)
-  target_link_libraries(server PRIVATE unofficial::mysql::client)
-else()
-  target_link_libraries(server PRIVATE unofficial::libmysql::libmysql)
-endif() 
+    unofficial::libmysql::libmysql
+) 
