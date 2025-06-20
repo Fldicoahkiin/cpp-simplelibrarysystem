@@ -197,7 +197,7 @@
                                     class="fa fa-users text-red-600 mr-3"></i>用户管理</h2>
                             <div id="userManagementResult" class="prose max-w-none"></div>
                         </div>
-                        <!-- 通用结果显示区 -->
+                        <!-- 通用消息/结果显示区 -->
                         <div id="result" class="prose max-w-none mt-4"></div>
                     </div>
                 </section>
@@ -298,22 +298,90 @@
                 }
                 let table = '<table class="w-full text-left"><thead><tr><th class="p-2">ID</th><th class="p-2">用户名</th><th class="p-2">角色</th><th class="p-2">操作</th></tr></thead><tbody>';
                 users.forEach(user => {
-                    table += `<tr class="border-b"><td class="p-2">${user.id}</td><td class="p-2">${user.username}</td><td class="p-2">${user.isAdmin ? '<span class="font-bold text-red-500">管理员</span>' : '普通用户'}</td><td class="p-2"><button class="text-blue-600 text-sm" onclick="api.getUserHistory(${user.id}, '${user.username}')">查看历史</button></td></tr>`;
+                    table += `<tr class="border-b">
+                                <td class="p-2 align-middle">${user.id}</td>
+                                <td class="p-2 align-middle">${user.username}</td>
+                                <td class="p-2 align-middle">${user.isAdmin ? '<span class="font-bold text-red-500">管理员</span>' : '普通用户'}</td>
+                                <td class="p-2 align-middle">
+                                    <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-blue-200 transition-colors flex items-center" 
+                                            onclick="ui.toggleUserHistory(this, ${user.id}, '${user.username}')">
+                                        <i class="fa fa-history mr-1"></i> 查看历史
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr id="history-for-user-${user.id}" class="hidden">
+                                <td colspan="4" class="p-4 bg-gray-50 border-b">
+                                    <div class="history-content">
+                                        <div class="flex items-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i>加载中...</div>
+                                    </div>
+                                </td>
+                            </tr>`;
                 });
                 table += '</tbody></table>';
                 target.innerHTML = table;
             },
-            renderUserHistory(username, records) {
+            renderUserHistory(userId, username, records) {
+                const historyRow = document.getElementById(`history-for-user-${userId}`);
+                if (!historyRow) return;
+                const contentDiv = historyRow.querySelector('.history-content');
+                contentDiv.dataset.loaded = 'true';
+
                 if (records.length === 0) {
-                    this.showSuccess(`用户 ${username} 没有任何借阅记录。`);
+                    contentDiv.innerHTML = `<p>用户 <strong>${username}</strong> 没有任何借阅记录。</p>`;
                     return;
                 }
-                let table = `<h3>用户 ${username} 的借阅历史</h3><table class="w-full text-left mt-2"><thead><tr><th class="p-2">书ID</th><th class="p-2">书名</th><th class="p-2">借阅日期</th><th class="p-2">状态</th></tr></thead><tbody>`;
+
+                let table = `<table class="w-full text-left text-sm">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="p-2 font-semibold">书ID</th>
+                                        <th class="p-2 font-semibold">书名</th>
+                                        <th class="p-2 font-semibold">借阅日期</th>
+                                        <th class="p-2 font-semibold">状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
                 records.forEach(r => {
-                    table += `<tr class="border-b"><td class="p-2">${r.bookId}</td><td class="p-2">${r.title}</td><td class="p-2">${r.borrowDate}</td><td class="p-2">${r.returned ? '<span class="text-green-600">已归还</span>' : '<span class="text-yellow-600">未归还</span>'}</td></tr>`;
+                    table += `<tr class="border-b border-gray-200 last:border-b-0">
+                                  <td class="p-2">${r.bookId}</td>
+                                  <td class="p-2">${r.title}</td>
+                                  <td class="p-2">${r.borrowDate}</td>
+                                  <td class="p-2">${r.returned ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已归还</span>' : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">未归还</span>'}</td>
+                              </tr>`;
                 });
                 table += '</tbody></table>';
-                this.renderResult(table);
+                contentDiv.innerHTML = table;
+            },
+            toggleUserHistory(buttonEl, userId, username) {
+                const historyRow = document.getElementById(`history-for-user-${userId}`);
+                const isVisible = !historyRow.classList.contains('hidden');
+
+                // Close all other history rows
+                document.querySelectorAll('tr[id^="history-for-user-"]').forEach(row => {
+                    if (row.id !== `history-for-user-${userId}`) {
+                        row.classList.add('hidden');
+                    }
+                });
+
+                // Reset all other buttons
+                document.querySelectorAll('button[onclick^="ui.toggleUserHistory"]').forEach(btn => {
+                    if (btn !== buttonEl) {
+                        btn.innerHTML = '<i class="fa fa-history mr-1"></i> 查看历史';
+                    }
+                });
+
+                if (isVisible) {
+                    historyRow.classList.add('hidden');
+                    buttonEl.innerHTML = '<i class="fa fa-history mr-1"></i> 查看历史';
+                } else {
+                    historyRow.classList.remove('hidden');
+                    buttonEl.innerHTML = '<i class="fa fa-chevron-up mr-1"></i> 收起历史';
+
+                    const contentDiv = historyRow.querySelector('.history-content');
+                    if (contentDiv.dataset.loaded !== 'true') {
+                        api.getUserHistory(userId, username);
+                    }
+                }
             },
             showSuccess(message) { this.renderResult(`<div class="text-green-600">${message}</div>`) },
             showError(message) { this.renderResult(`<div class="text-red-600">${message}</div>`) }
@@ -447,11 +515,17 @@
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
             async getUserHistory(userId, username) {
-                ui.clearResult();
+                ui.clearResult(); // 在开始新操作时清除通用消息区域
                 try {
                     const records = await this.handleFetch(`${API_BASE_URL}/admin/user/${userId}/borrows`);
-                    ui.renderUserHistory(username, records);
-                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+                    ui.renderUserHistory(userId, username, records);
+                } catch (e) {
+                    const historyRow = document.getElementById(`history-for-user-${userId}`);
+                    if (historyRow) {
+                        const contentDiv = historyRow.querySelector('.history-content');
+                        contentDiv.innerHTML = `<p class="text-red-500">加载历史记录失败: ${e.message}</p>`;
+                    }
+                }
             }
         };
 

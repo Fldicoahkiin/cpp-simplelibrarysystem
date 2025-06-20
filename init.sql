@@ -1,17 +1,25 @@
 CREATE DATABASE IF NOT EXISTS library_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE library_db;
-CREATE TABLE IF NOT EXISTS users (
+-- 为了确保脚本可以重复执行，我们先按正确顺序删除旧表（如果存在的话）
+-- 注意：必须先删除有外键依赖的表
+DROP TABLE IF EXISTS borrow_records;
+DROP TABLE IF EXISTS books;
+DROP TABLE IF EXISTS users;
+-- 用户表，增加 is_admin 字段
+CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE TABLE IF NOT EXISTS books (
+-- 图书表
+CREATE TABLE books (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     stock INT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS borrow_records (
+-- 借阅记录表，增加借阅日期和索引
+CREATE TABLE borrow_records (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     book_id INT NOT NULL,
@@ -22,10 +30,6 @@ CREATE TABLE IF NOT EXISTS borrow_records (
     INDEX idx_user_book_returned (user_id, book_id, returned)
 );
 -- 插入初始数据
--- 注意：每次执行此脚本都会清空旧数据
-TRUNCATE TABLE borrow_records;
-TRUNCATE TABLE users;
-TRUNCATE TABLE books;
 -- 添加管理员和普通用户
 INSERT INTO users (username, password, is_admin)
 VALUES ('admin', '123456', TRUE),

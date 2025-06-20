@@ -97,7 +97,7 @@
                 <aside class="lg:col-span-1">
                     <div class="bg-white rounded-xl card-shadow p-5 h-full">
                         <h2 class="text-lg font-semibold mb-4 pb-2 border-b text-gray-700">操作菜单</h2>
-                        <nav class="space-y-2">
+                        <nav id="userMenu" class="space-y-2">
                             <button onclick="ui.showForm('allBooks')"
                                 class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
                                     class="fa fa-book w-6 text-center text-blue-600 mr-2"></i> 所有图书</button>
@@ -113,7 +113,19 @@
                             <button onclick="ui.showForm('myBorrows')"
                                 class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
                                     class="fa fa-list-alt w-6 text-center text-blue-600 mr-2"></i> 我的借阅</button>
+                            <button onclick="ui.showForm('recommendations')"
+                                class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
+                                    class="fa fa-star w-6 text-center text-blue-600 mr-2"></i> 为你推荐</button>
                         </nav>
+                        <!-- 管理员菜单 (默认隐藏) -->
+                        <div id="adminMenu" class="hidden mt-6 pt-4 border-t">
+                            <h2 class="text-lg font-semibold mb-4 text-red-600">管理员面板</h2>
+                            <nav class="space-y-2">
+                                <button onclick="ui.showForm('userManagement')"
+                                    class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-red-50 transition-colors flex items-center"><i
+                                        class="fa fa-users w-6 text-center text-red-600 mr-2"></i> 用户管理</button>
+                            </nav>
+                        </div>
                     </div>
                 </aside>
 
@@ -121,8 +133,15 @@
                     <div class="bg-white rounded-xl card-shadow p-6 min-h-[300px]">
                         <!-- 所有图书 -->
                         <div id="allBooks" class="form-section">
-                            <h2 class="text-xl font-semibold mb-4 flex items-center"><i
-                                    class="fa fa-book text-blue-600 mr-3"></i>馆藏图书</h2>
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-xl font-semibold flex items-center"><i
+                                        class="fa fa-book text-blue-600 mr-3"></i>馆藏图书</h2>
+                                <div class="w-1/2">
+                                    <input type="search" id="bookSearchInput" placeholder="按书名或ID搜索..."
+                                        class="w-full px-4 py-2 border rounded-lg form-input-focus"
+                                        onkeyup="api.searchBooks()">
+                                </div>
+                            </div>
                             <div id="allBooksResult" class="prose max-w-none"></div>
                         </div>
                         <!-- 添加图书 -->
@@ -163,10 +182,22 @@
                         <!-- 我的借阅 -->
                         <div id="myBorrows" class="form-section">
                             <h2 class="text-xl font-semibold mb-4 flex items-center"><i
-                                    class="fa fa-list-alt text-blue-600 mr-3"></i>我的借阅</h2>
+                                    class="fa fa-list-alt text-blue-600 mr-3"></i>我的当前借阅</h2>
                             <div id="myBorrowsResult" class="prose max-w-none"></div>
                         </div>
-                        <!-- 通用结果显示区 -->
+                        <!-- 为你推荐 -->
+                        <div id="recommendations" class="form-section">
+                            <h2 class="text-xl font-semibold mb-4 flex items-center"><i
+                                    class="fa fa-star text-blue-600 mr-3"></i>为你推荐</h2>
+                            <div id="recommendationsResult" class="prose max-w-none"></div>
+                        </div>
+                        <!-- 用户管理 (Admin) -->
+                        <div id="userManagement" class="form-section">
+                            <h2 class="text-xl font-semibold mb-4 flex items-center"><i
+                                    class="fa fa-users text-red-600 mr-3"></i>用户管理</h2>
+                            <div id="userManagementResult" class="prose max-w-none"></div>
+                        </div>
+                        <!-- 通用消息/结果显示区 -->
                         <div id="result" class="prose max-w-none mt-4"></div>
                     </div>
                 </section>
@@ -182,7 +213,8 @@
 
         const store = {
             user: null,
-            token: null
+            token: null,
+            isAdmin: false,
         };
 
         const ui = {
@@ -210,8 +242,10 @@
                 document.querySelectorAll('.form-section').forEach(form => form.classList.remove('active'));
                 document.getElementById(formId).classList.add('active');
                 this.clearResult();
-                if (formId === 'allBooks') api.getAllBooks();
+                if (formId === 'allBooks') api.searchBooks();
                 if (formId === 'myBorrows') api.getMyBorrows();
+                if (formId === 'recommendations') api.getRecommendations();
+                if (formId === 'userManagement') api.getAllUsers();
             },
             renderResult(html) {
                 document.getElementById('result').innerHTML = html;
@@ -242,6 +276,112 @@
                 borrows.forEach(b => list += `<li>ID: ${b.id} - ${b.title}</li>`);
                 list += '</ul>';
                 target.innerHTML = list;
+            },
+            renderRecommendations(books) {
+                const target = document.getElementById('recommendationsResult');
+                if (!books || books.length === 0) {
+                    target.innerHTML = '<p>暂无推荐书籍。多借阅一些热门书籍可以帮助我们给您推荐！</p>';
+                    return;
+                }
+                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">ID</th><th class="p-2">标题</th><th class="p-2">库存</th></tr></thead><tbody>';
+                books.forEach(book => {
+                    table += `<tr class="border-b"><td class="p-2">${book.id}</td><td class="p-2">${book.title}</td><td class="p-2">${book.stock}</td></tr>`;
+                });
+                table += '</tbody></table>';
+                target.innerHTML = table;
+            },
+            renderUsers(users) {
+                const target = document.getElementById('userManagementResult');
+                if (!users || users.length === 0) {
+                    target.innerHTML = '<p>没有其他用户。</p>';
+                    return;
+                }
+                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">ID</th><th class="p-2">用户名</th><th class="p-2">角色</th><th class="p-2">操作</th></tr></thead><tbody>';
+                users.forEach(user => {
+                    table += `<tr class="border-b">
+                                <td class="p-2 align-middle">${user.id}</td>
+                                <td class="p-2 align-middle">${user.username}</td>
+                                <td class="p-2 align-middle">${user.isAdmin ? '<span class="font-bold text-red-500">管理员</span>' : '普通用户'}</td>
+                                <td class="p-2 align-middle">
+                                    <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-blue-200 transition-colors flex items-center" 
+                                            onclick="ui.toggleUserHistory(this, ${user.id}, '${user.username}')">
+                                        <i class="fa fa-history mr-1"></i> 查看历史
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr id="history-for-user-${user.id}" class="hidden">
+                                <td colspan="4" class="p-4 bg-gray-50 border-b">
+                                    <div class="history-content">
+                                        <div class="flex items-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i>加载中...</div>
+                                    </div>
+                                </td>
+                            </tr>`;
+                });
+                table += '</tbody></table>';
+                target.innerHTML = table;
+            },
+            renderUserHistory(userId, username, records) {
+                const historyRow = document.getElementById(`history-for-user-${userId}`);
+                if (!historyRow) return;
+                const contentDiv = historyRow.querySelector('.history-content');
+                contentDiv.dataset.loaded = 'true';
+
+                if (records.length === 0) {
+                    contentDiv.innerHTML = `<p>用户 <strong>${username}</strong> 没有任何借阅记录。</p>`;
+                    return;
+                }
+
+                let table = `<table class="w-full text-left text-sm">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="p-2 font-semibold">书ID</th>
+                                        <th class="p-2 font-semibold">书名</th>
+                                        <th class="p-2 font-semibold">借阅日期</th>
+                                        <th class="p-2 font-semibold">状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                records.forEach(r => {
+                    table += `<tr class="border-b border-gray-200 last:border-b-0">
+                                  <td class="p-2">${r.bookId}</td>
+                                  <td class="p-2">${r.title}</td>
+                                  <td class="p-2">${r.borrowDate}</td>
+                                  <td class="p-2">${r.returned ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已归还</span>' : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">未归还</span>'}</td>
+                              </tr>`;
+                });
+                table += '</tbody></table>';
+                contentDiv.innerHTML = table;
+            },
+            toggleUserHistory(buttonEl, userId, username) {
+                const historyRow = document.getElementById(`history-for-user-${userId}`);
+                const isVisible = !historyRow.classList.contains('hidden');
+
+                // Close all other history rows
+                document.querySelectorAll('tr[id^="history-for-user-"]').forEach(row => {
+                    if (row.id !== `history-for-user-${userId}`) {
+                        row.classList.add('hidden');
+                    }
+                });
+
+                // Reset all other buttons
+                document.querySelectorAll('button[onclick^="ui.toggleUserHistory"]').forEach(btn => {
+                    if (btn !== buttonEl) {
+                        btn.innerHTML = '<i class="fa fa-history mr-1"></i> 查看历史';
+                    }
+                });
+
+                if (isVisible) {
+                    historyRow.classList.add('hidden');
+                    buttonEl.innerHTML = '<i class="fa fa-history mr-1"></i> 查看历史';
+                } else {
+                    historyRow.classList.remove('hidden');
+                    buttonEl.innerHTML = '<i class="fa fa-chevron-up mr-1"></i> 收起历史';
+
+                    const contentDiv = historyRow.querySelector('.history-content');
+                    if (contentDiv.dataset.loaded !== 'true') {
+                        api.getUserHistory(userId, username);
+                    }
+                }
             },
             showSuccess(message) { this.renderResult(`<div class="text-green-600">${message}</div>`) },
             showError(message) { this.renderResult(`<div class="text-red-600">${message}</div>`) }
@@ -289,21 +429,26 @@
                     });
                     store.user = { id: data.userId, username: data.username };
                     store.token = data.token;
+                    store.isAdmin = data.isAdmin;
                     localStorage.setItem('libraryUser', JSON.stringify(store.user));
                     localStorage.setItem('libraryToken', store.token);
+                    localStorage.setItem('libraryIsAdmin', store.isAdmin);
                     initApp();
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
             logout() {
                 store.user = null;
                 store.token = null;
+                store.isAdmin = false;
                 localStorage.removeItem('libraryUser');
                 localStorage.removeItem('libraryToken');
+                localStorage.removeItem('libraryIsAdmin');
                 location.reload();
             },
-            async getAllBooks() {
+            async searchBooks() {
+                const query = document.getElementById('bookSearchInput').value;
                 try {
-                    const books = await this.handleFetch(`${API_BASE_URL}/books`);
+                    const books = await this.handleFetch(`${API_BASE_URL}/books?q=${encodeURIComponent(query)}`);
                     ui.renderAllBooks(books);
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
@@ -356,18 +501,50 @@
                     const borrows = await this.handleFetch(`${API_BASE_URL}/user/${store.user.id}/borrows`);
                     ui.renderMyBorrows(borrows);
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            async getRecommendations() {
+                try {
+                    const books = await this.handleFetch(`${API_BASE_URL}/user/${store.user.id}/recommendations`);
+                    ui.renderRecommendations(books);
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            async getAllUsers() {
+                try {
+                    const users = await this.handleFetch(`${API_BASE_URL}/admin/users`);
+                    ui.renderUsers(users);
+                } catch (e) { /* 错误已在 handleFetch 中处理 */ }
+            },
+            async getUserHistory(userId, username) {
+                ui.clearResult(); // 在开始新操作时清除通用消息区域
+                try {
+                    const records = await this.handleFetch(`${API_BASE_URL}/admin/user/${userId}/borrows`);
+                    ui.renderUserHistory(userId, username, records);
+                } catch (e) {
+                    const historyRow = document.getElementById(`history-for-user-${userId}`);
+                    if (historyRow) {
+                        const contentDiv = historyRow.querySelector('.history-content');
+                        contentDiv.innerHTML = `<p class="text-red-500">加载历史记录失败: ${e.message}</p>`;
+                    }
+                }
             }
         };
 
         function initApp() {
             const savedUser = localStorage.getItem('libraryUser');
             const savedToken = localStorage.getItem('libraryToken');
+            const savedIsAdmin = localStorage.getItem('libraryIsAdmin') === 'true';
 
             if (savedUser && savedToken) {
                 store.user = JSON.parse(savedUser);
                 store.token = savedToken;
+                store.isAdmin = savedIsAdmin;
                 document.getElementById('currentUsername').textContent = store.user.username;
                 document.getElementById('mainContent').classList.remove('hidden');
+
+                if (store.isAdmin) {
+                    document.getElementById('adminMenu').classList.remove('hidden');
+                }
+
                 ui.hideAuthModal();
                 ui.showForm('allBooks');
             } else {

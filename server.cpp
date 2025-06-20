@@ -138,7 +138,7 @@ public:
             {
                 long long userId;
                 char dbUsername[256];
-                my_bool isAdmin = false;
+                bool isAdmin = false;
 
                 MYSQL_BIND result[3];
                 memset(result, 0, sizeof(result));
@@ -525,7 +525,7 @@ public:
                 long long bookId;
                 char title[256];
                 MYSQL_TIME borrow_date;
-                my_bool returned;
+                bool returned;
                 MYSQL_BIND result[4];
                 memset(result, 0, sizeof(result));
                 result[0].buffer_type = MYSQL_TYPE_LONGLONG;
