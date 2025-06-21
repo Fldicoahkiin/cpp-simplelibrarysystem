@@ -23,17 +23,44 @@
 
 ---
 
+## 🚀 CI/CD 自动化流程
+
+本项目采用了双CI/CD流水线（GitHub Actions 和 CircleCI），以确保构建的灵活性和冗余。当代码被推送到 `main` 分支时，两个平台会同时被触发，自动完成所有构建、测试和发布任务。
+
+**最终产物**: 每次成功的CI运行，都会生成两个独立的、完全自包含的可执行文件 (`server-windows.exe` 和 `server-macos`)，并发布到GitHub Release页面，用户下载后可直接运行，无需安装任何额外依赖。
+
+### 方案一: GitHub Actions (配合自托管Runner)
+
+- **配置文件**: `.github/workflows/build.yml`
+- **核心优势**: 解决了GitHub对macOS虚拟机的高额计费问题，通过在您自己的Mac上运行一个`self-hosted runner`来免费执行macOS的构建任务。
+- **流程简介**:
+  1. **Windows构建**: 在GitHub提供的云端Windows虚拟机上，通过vcpkg进行静态编译。
+  2. **macOS构建**: 任务被分发到您自己的、已注册的自托管Runner上执行静态编译。
+  3. **资源嵌入**: 在编译前，自动将`index.html`文件的内容嵌入到C++代码中。
+  4. **发布**: 汇总两个平台的可执行文件，创建一个新的GitHub Release。
+
+### 方案二: CircleCI
+
+- **配置文件**: `.circleci/config.yml`
+- **核心优势**: 提供了一个完全独立的第三方构建环境，作为GitHub Actions的备份或替代方案。拥有慷慨的免费额度，界面简洁高效。
+- **流程简介**:
+  1. **并行构建**: 在CircleCI的云端Windows和macOS虚拟机上同时开始构建。
+  2. **静态链接与资源嵌入**: 执行与GitHub Actions完全相同的逻辑，确保产物一致。
+  3. **发布**: 使用GitHub CLI工具，将构建好的两个可执行文件发布到项目的GitHub Release页面。
+
+---
+
 ## 🚀 本地开发与构建
 
 本项目使用 **CMake Presets** 和 **vcpkg** 来实现极简的本地构建体验。
 
-### 首次环境配置
+### 环境要求
 
 1. **安装构建工具**:
     - **CMake**: 版本3.15或更高。
     - **Ninja**: (推荐) 一个快速的构建系统。
     - **C++编译器**:
-      - Windows: Visual Studio 2019 或更高版本 (需安装 "使用C++的桌面开发" 工作负载)。
+      - Windows: Visual Studio 2022 或更高版本 (需安装 "使用C++的桌面开发" 工作负载)。
       - macOS: Xcode Command Line Tools。
 
 2. **获取 vcpkg**:
@@ -46,9 +73,7 @@
     ```
 
 3. **配置CMake预设文件**:
-    本项目已包含 `CMakePresets.json` 文件。它被配置为：
-    - **优先使用** `VCPKG_ROOT` 环境变量（如果已设置）。
-    - 如果`VCPKG_ROOT`未设置，则**自动回退**到您本地的vcpkg路径。**请根据您的实际情况修改 `CMakePresets.json` 中第13行的回退路径 `/Users/mac/vcpkg`**。
+    本项目包含的 `CMakePresets.json` 文件已将vcpkg工具链的路径硬编码为 `/Users/mac/vcpkg`。如果您的vcpkg安装在不同位置，请相应修改此文件。
 
 ### 编译项目
 
@@ -62,7 +87,7 @@ cmake --preset default
 cmake --build build
 ```
 
-编译成功后，可执行文件 `server` (或 `server.exe`) 和 `index.html` 将位于 `build` 目录下。
+编译成功后，可执行文件 `server` (或 `server.exe`) 将位于 `build` 目录下。由于我们采用了资源嵌入，本地编译时，程序会从文件系统读取 `index.html` 以方便您修改前端；而通过CI发布的版本则直接包含了HTML内容。
 
 ---
 

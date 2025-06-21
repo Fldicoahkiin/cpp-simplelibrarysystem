@@ -1,0 +1,127 @@
+version: 2.1
+
+# 定义将要使用的执行器 (Executor)
+# Windows 执行器使用带有图形界面的 Windows Server 2022 镜像
+executors:
+  win:
+    machine:
+      image: windows-server-2022-gui
+    resource_class: windows.medium
+
+# --- 作业定义 (Jobs) ---
+jobs:
+  #--- macOS 构建作业 ---
+  build-macos:
+    macos:
+      xcode: 15.3.0 # 指定一个较新的 Xcode 版本
+    environment:
+      VCPKG_ROOT: /Users/distiller/vcpkg
+      VCPKG_DEFAULT_TRIPLET: arm64-osx
+    steps:
+      - checkout
+      - run:
+          name: "安装 Homebrew 依赖"
+          command: brew install cmake ninja
+      - run:
+          name: "安装 vcpkg"
+          command: |
+            if [ ! -d "$VCPKG_ROOT" ]; then
+              git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+              "$VCPKG_ROOT/bootstrap-vcpkg.sh"
+            fi
+      - run:
+          name: "用 vcpkg 安装项目依赖"
+          command: "$VCPKG_ROOT/vcpkg" install
+      - run:
+          name: "配置 CMake"
+          command: |
+            cmake -B build -S . -G Ninja \
+              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+              -DBUILD_SHARED_LIBS=OFF
+      - run:
+          name: "嵌入 HTML 资源"
+          command: |
+            python3 -c "with open('index.html', 'r', encoding='utf-8') as f: content = f.read(); print(f'#pragma once\\n\\nconst char index_html_content[] = R\"raw({content})raw\";') " > build/index_html.h
+      - run:
+          name: "构建可执行文件"
+          command: cmake --build build --config Release
+      - persist_to_workspace: # 将产物保存到工作区，供后续 deploy 作业使用
+          root: build
+          paths:
+            - server
+
+  #--- Windows 构建作业 ---
+  build-windows:
+    executor: win
+    environment:
+      VCPKG_ROOT: C:/Users/circleci/vcpkg
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static
+    steps:
+      - checkout
+      - run:
+          name: "安装 vcpkg"
+          shell: powershell.exe
+          command: |
+            if (-not (Test-Path $env:VCPKG_ROOT)) {
+              git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+              & "$env:VCPKG_ROOT/bootstrap-vcpkg.bat"
+            }
+      - run:
+          name: "用 vcpkg 安装项目依赖"
+          shell: powershell.exe
+          command: '& "$env:VCPKG_ROOT/vcpkg" install'
+      - run:
+          name: "配置 CMake"
+          shell: powershell.exe
+          command: |
+            cmake -B build -S . -G "Visual Studio 17 2022" -A x64 \
+              -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+              -DBUILD_SHARED_LIBS=OFF
+      - run:
+          name: "嵌入 HTML 资源"
+          shell: powershell.exe
+          command: |
+            New-Item -Path build -ItemType Directory -Force | Out-Null
+            python -c "with open('index.html', 'r', encoding='utf-8') as f: content = f.read(); print(f'#pragma once\\n\\nconst char index_html_content[] = R\"raw({content})raw\";') " > build/index_html.h
+      - run:
+          name: "构建可执行文件"
+          shell: powershell.exe
+          command: cmake --build build --config Release
+      - persist_to_workspace:
+          root: build/Release
+          paths:
+            - server.exe
+
+  #--- 发布作业 ---
+  deploy-github-release:
+    docker:
+      - image: cimg/base:2024.01 # 使用一个基础的 Linux 镜像
+    steps:
+      - attach_workspace: # 从工作区获取构建好的产物
+          at: ./workspace
+      - run:
+          name: "安装 GitHub CLI"
+          command: |
+            sudo apt-get -y update
+            sudo apt-get -y install gh
+      - run:
+          name: "准备并创建 Release"
+          command: |
+            RELEASE_TAG="ci-circle-$(date +'%Y%m%d-%H%M%S')"
+            mv ./workspace/server ./server-macos
+            mv ./workspace/server.exe ./server-windows.exe
+            gh release create "$RELEASE_TAG" --title "Release $RELEASE_TAG" --notes "Automated release by CircleCI." ./server-macos ./server-windows.exe
+
+# --- 工作流定义 (Workflows) ---
+workflows:
+  build-and-deploy:
+    jobs:
+      - build-macos
+      - build-windows
+      - deploy-github-release:
+          requires: # 声明此作业依赖于两个构建作业
+            - build-macos
+            - build-windows
+          filters: # 仅在 main 分支有推送时触发
+            branches:
+              only: main 
