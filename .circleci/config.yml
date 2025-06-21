@@ -6,7 +6,6 @@ executors:
   win:
     machine:
       image: windows-server-2022-gui
-    resource_class: windows.medium
 
 # --- 作业定义 (Jobs) ---
 jobs:
