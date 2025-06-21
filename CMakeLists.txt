@@ -16,7 +16,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON) # 在构建时显示详细的编译命令
 # 应使用库安装后提供的CMake包名 (例如 vcpkg 包 'cpp-httplib' 提供的是 'httplib')。
 find_package(httplib CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-# find_package(unofficial-libmysql CONFIG REQUIRED) # Temporarily disabled
+find_package(unofficial-libmysql CONFIG REQUIRED)
 
 #-----------------------------------------------------------------------------
 # 构建目标定义
@@ -44,4 +44,6 @@ target_include_directories(server PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(server PRIVATE
     httplib::httplib
     nlohmann_json::nlohmann_json
+    unofficial::libmysql::libmysql
+    "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/x64-windows/lib/libmysql.lib"
 )

@@ -5,6 +5,7 @@
     "description": "A simple C++ web server for a library management system.",
     "dependencies": [
         "cpp-httplib",
-        "nlohmann-json"
+        "nlohmann-json",
+        "libmysql"
     ]
 }

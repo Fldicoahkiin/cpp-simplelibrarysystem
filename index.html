@@ -101,9 +101,6 @@
                             <button onclick="ui.showForm('allBooks')"
                                 class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
                                     class="fa fa-book w-6 text-center text-blue-600 mr-2"></i> 所有图书</button>
-                            <button onclick="ui.showForm('addBook')"
-                                class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
-                                    class="fa fa-plus-circle w-6 text-center text-blue-600 mr-2"></i> 添加图书</button>
                             <button onclick="ui.showForm('borrowBook')"
                                 class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-blue-50 transition-colors flex items-center"><i
                                     class="fa fa-exchange w-6 text-center text-blue-600 mr-2"></i> 借阅图书</button>
@@ -121,6 +118,9 @@
                         <div id="adminMenu" class="hidden mt-6 pt-4 border-t">
                             <h2 class="text-lg font-semibold mb-4 text-red-600">管理员面板</h2>
                             <nav class="space-y-2">
+                                <button onclick="ui.showForm('addBook')"
+                                    class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-red-50 transition-colors flex items-center"><i
+                                        class="fa fa-plus-circle w-6 text-center text-red-600 mr-2"></i> 添加图书</button>
                                 <button onclick="ui.showForm('userManagement')"
                                     class="w-full text-left py-2.5 px-4 rounded-lg hover:bg-red-50 transition-colors flex items-center"><i
                                         class="fa fa-users w-6 text-center text-red-600 mr-2"></i> 用户管理</button>
@@ -144,14 +144,14 @@
                             </div>
                             <div id="allBooksResult" class="prose max-w-none"></div>
                         </div>
-                        <!-- 添加图书 -->
+                        <!-- 添加图书 (管理员) -->
                         <div id="addBook" class="form-section">
                             <h2 class="text-xl font-semibold mb-4 flex items-center"><i
-                                    class="fa fa-plus-circle text-blue-600 mr-3"></i>添加图书</h2>
+                                    class="fa fa-plus-circle text-red-600 mr-3"></i>添加图书</h2>
                             <div class="space-y-4">
                                 <input type="text" id="addBookTitle" placeholder="图书标题"
                                     class="w-full px-4 py-2 border rounded-lg form-input-focus">
-                                <input type="number" id="addBookStock" placeholder="库存数量"
+                                <input type="number" id="addBookStock" placeholder="库存数量" min="0"
                                     class="w-full px-4 py-2 border rounded-lg form-input-focus">
                                 <button onclick="api.addBook()"
                                     class="bg-blue-600 text-white py-2 px-5 rounded-lg btn-hover transition-all">提交</button>
@@ -162,21 +162,24 @@
                             <h2 class="text-xl font-semibold mb-4 flex items-center"><i
                                     class="fa fa-exchange text-blue-600 mr-3"></i>借阅图书</h2>
                             <div class="space-y-4">
-                                <input type="number" id="borrowBookId" placeholder="图书 ID"
+                                <input type="number" id="borrowBookId" placeholder="请输入想借阅的 图书ID" min="1"
                                     class="w-full px-4 py-2 border rounded-lg form-input-focus">
                                 <button onclick="api.borrowBook()"
-                                    class="bg-blue-600 text-white py-2 px-5 rounded-lg btn-hover transition-all">借阅</button>
+                                    class="bg-blue-600 text-white py-2 px-5 rounded-lg btn-hover transition-all">确认借阅</button>
                             </div>
                         </div>
                         <!-- 归还图书 -->
                         <div id="returnBook" class="form-section">
                             <h2 class="text-xl font-semibold mb-4 flex items-center"><i
                                     class="fa fa-undo text-blue-600 mr-3"></i>归还图书</h2>
+                            <p class="text-sm text-gray-500 mb-4">
+                                请输入您想要归还的图书的"图书ID"。
+                            </p>
                             <div class="space-y-4">
-                                <input type="number" id="returnBookId" placeholder="图书 ID"
+                                <input type="number" id="returnBookId" placeholder="请输入要归还的 图书ID" min="1"
                                     class="w-full px-4 py-2 border rounded-lg form-input-focus">
                                 <button onclick="api.returnBook()"
-                                    class="bg-blue-600 text-white py-2 px-5 rounded-lg btn-hover transition-all">归还</button>
+                                    class="bg-blue-600 text-white py-2 px-5 rounded-lg btn-hover transition-all">确认归还</button>
                             </div>
                         </div>
                         <!-- 我的借阅 -->
@@ -188,7 +191,7 @@
                         <!-- 为你推荐 -->
                         <div id="recommendations" class="form-section">
                             <h2 class="text-xl font-semibold mb-4 flex items-center"><i
-                                    class="fa fa-star text-blue-600 mr-3"></i>为你推荐</h2>
+                                    class="fa fa-star text-blue-600 mr-3"></i>热门图书推荐</h2>
                             <div id="recommendationsResult" class="prose max-w-none"></div>
                         </div>
                         <!-- 用户管理 (Admin) -->
@@ -209,23 +212,29 @@
     </div>
 
     <script>
+        // API基础URL,指向后端服务
         const API_BASE_URL = '/api';
 
+        // 全局状态管理对象,用于存储用户信息和token
         const store = {
-            user: null,
+            user: null, // {id, username}
             token: null,
             isAdmin: false,
         };
 
+        // UI操作对象,封装所有与界面更新相关的函数
         const ui = {
+            /** 显示登录表单,隐藏注册表单 */
             showLoginForm() {
                 document.getElementById('loginForm').classList.remove('hidden');
                 document.getElementById('registerForm').classList.add('hidden');
             },
+            /** 显示注册表单,隐藏登录表单 */
             showRegisterForm() {
                 document.getElementById('loginForm').classList.add('hidden');
                 document.getElementById('registerForm').classList.remove('hidden');
             },
+            /** 带动效显示认证模态框 */
             showAuthModal() {
                 document.getElementById('authModal').classList.remove('hidden');
                 setTimeout(() => {
@@ -233,75 +242,92 @@
                     document.getElementById('authContainer').classList.add('scale-100', 'opacity-100');
                 }, 10);
             },
+            /** 带动效隐藏认证模态框 */
             hideAuthModal() {
                 document.getElementById('authModal').classList.remove('opacity-100');
                 document.getElementById('authContainer').classList.remove('scale-100', 'opacity-100');
                 setTimeout(() => document.getElementById('authModal').classList.add('hidden'), 300);
             },
+            /** 切换显示不同的功能面板,并按需加载数据 */
             showForm(formId) {
                 document.querySelectorAll('.form-section').forEach(form => form.classList.remove('active'));
                 document.getElementById(formId).classList.add('active');
-                this.clearResult();
+                this.clearResult(); // 切换时清空上一个操作的结果信息
+
+                // 根据面板ID加载对应的数据
                 if (formId === 'allBooks') api.searchBooks();
                 if (formId === 'myBorrows') api.getMyBorrows();
                 if (formId === 'recommendations') api.getRecommendations();
                 if (formId === 'userManagement') api.getAllUsers();
             },
+            /** 在通用消息区显示HTML内容 */
             renderResult(html) {
                 document.getElementById('result').innerHTML = html;
             },
+            /** 清空通用消息区 */
             clearResult() {
                 this.renderResult('');
             },
+            /** 渲染所有图书列表 */
             renderAllBooks(books) {
                 const target = document.getElementById('allBooksResult');
-                if (books.length === 0) {
+                if (!books || books.length === 0) {
                     target.innerHTML = '<p>图书馆里还没有书。</p>';
                     return;
                 }
-                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">ID</th><th class="p-2">标题</th><th class="p-2">库存</th></tr></thead><tbody>';
+                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">图书ID</th><th class="p-2">标题</th><th class="p-2">库存</th></tr></thead><tbody>';
                 books.forEach(book => {
                     table += `<tr class="border-b"><td class="p-2">${book.id}</td><td class="p-2">${book.title}</td><td class="p-2">${book.stock}</td></tr>`;
                 });
                 table += '</tbody></table>';
                 target.innerHTML = table;
             },
+            /** 渲染用户的当前借阅列表 */
             renderMyBorrows(borrows) {
                 const target = document.getElementById('myBorrowsResult');
-                if (borrows.length === 0) {
+                if (!borrows || borrows.length === 0) {
                     target.innerHTML = '<p>您当前没有借阅任何书籍。</p>';
                     return;
                 }
-                let list = '<ul class="list-disc pl-5">';
-                borrows.forEach(b => list += `<li>ID: ${b.id} - ${b.title}</li>`);
-                list += '</ul>';
-                target.innerHTML = list;
+                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">借阅ID</th><th class="p-2">图书ID</th><th class="p-2">书名</th><th class="p-2">借阅日期</th></tr></thead><tbody>';
+                borrows.forEach(b => {
+                    // b.id 是 borrow_records 的主键, b.book_id 是 books 表的主键
+                    table += `<tr class="border-b"><td class="p-2 font-mono text-blue-600">${b.id}</td><td class="p-2 font-mono text-gray-600">${b.book_id}</td><td class="p-2">${b.title}</td><td class="p-2">${new Date(b.borrow_date).toLocaleString()}</td></tr>`;
+                });
+                table += '</tbody></table>';
+                target.innerHTML = table;
             },
+            /** 渲染推荐图书列表 */
             renderRecommendations(books) {
                 const target = document.getElementById('recommendationsResult');
                 if (!books || books.length === 0) {
                     target.innerHTML = '<p>暂无推荐书籍。多借阅一些热门书籍可以帮助我们给您推荐！</p>';
                     return;
                 }
-                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">ID</th><th class="p-2">标题</th><th class="p-2">库存</th></tr></thead><tbody>';
+                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">图书ID</th><th class="p-2">标题</th><th class="p-2">库存</th></tr></thead><tbody>';
                 books.forEach(book => {
                     table += `<tr class="border-b"><td class="p-2">${book.id}</td><td class="p-2">${book.title}</td><td class="p-2">${book.stock}</td></tr>`;
                 });
                 table += '</tbody></table>';
                 target.innerHTML = table;
             },
+            /** (管理员)渲染所有用户列表 */
             renderUsers(users) {
                 const target = document.getElementById('userManagementResult');
                 if (!users || users.length === 0) {
+                    // 这里过滤掉当前登录的管理员自己
                     target.innerHTML = '<p>没有其他用户。</p>';
                     return;
                 }
-                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">ID</th><th class="p-2">用户名</th><th class="p-2">角色</th><th class="p-2">操作</th></tr></thead><tbody>';
+                let table = '<table class="w-full text-left"><thead><tr><th class="p-2">用户ID</th><th class="p-2">用户名</th><th class="p-2">角色</th><th class="p-2">操作</th></tr></thead><tbody>';
                 users.forEach(user => {
+                    if (user.id === store.user.id) return; // 不在列表中显示自己
+
+                    // 后端返回的是 is_admin, 前端统一使用
                     table += `<tr class="border-b">
                                 <td class="p-2 align-middle">${user.id}</td>
                                 <td class="p-2 align-middle">${user.username}</td>
-                                <td class="p-2 align-middle">${user.isAdmin ? '<span class="font-bold text-red-500">管理员</span>' : '普通用户'}</td>
+                                <td class="p-2 align-middle">${user.is_admin === true ? '<span class="font-bold text-red-500">管理员</span>' : '普通用户'}</td>
                                 <td class="p-2 align-middle">
                                     <button class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-blue-200 transition-colors flex items-center" 
                                             onclick="ui.toggleUserHistory(this, ${user.id}, '${user.username}')">
@@ -320,13 +346,14 @@
                 table += '</tbody></table>';
                 target.innerHTML = table;
             },
+            /** (管理员)渲染指定用户的借阅历史 */
             renderUserHistory(userId, username, records) {
                 const historyRow = document.getElementById(`history-for-user-${userId}`);
                 if (!historyRow) return;
                 const contentDiv = historyRow.querySelector('.history-content');
                 contentDiv.dataset.loaded = 'true';
 
-                if (records.length === 0) {
+                if (!records || records.length === 0) {
                     contentDiv.innerHTML = `<p>用户 <strong>${username}</strong> 没有任何借阅记录。</p>`;
                     return;
                 }
@@ -334,88 +361,102 @@
                 let table = `<table class="w-full text-left text-sm">
                                 <thead class="bg-gray-100">
                                     <tr>
-                                        <th class="p-2 font-semibold">书ID</th>
+                                        <th class="p-2 font-semibold">借阅ID</th>
                                         <th class="p-2 font-semibold">书名</th>
                                         <th class="p-2 font-semibold">借阅日期</th>
+                                        <th class="p-2 font-semibold">归还日期</th>
                                         <th class="p-2 font-semibold">状态</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
                 records.forEach(r => {
+                    // 后端返回 snake_case (e.g., borrow_id), JS直接使用
                     table += `<tr class="border-b border-gray-200 last:border-b-0">
-                                  <td class="p-2">${r.bookId}</td>
+                                  <td class="p-2">${r.borrow_id}</td>
                                   <td class="p-2">${r.title}</td>
-                                  <td class="p-2">${r.borrowDate}</td>
-                                  <td class="p-2">${r.returned ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已归还</span>' : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">未归还</span>'}</td>
+                                  <td class="p-2">${new Date(r.borrow_date).toLocaleString()}</td>
+                                  <td class="p-2">${r.return_date ? new Date(r.return_date).toLocaleString() : '---'}</td>
+                                  <td class="p-2">${r.returned === true ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已归还</span>' : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">未归还</span>'}</td>
                               </tr>`;
                 });
                 table += '</tbody></table>';
                 contentDiv.innerHTML = table;
             },
+            /** (管理员)切换显示/隐藏用户历史记录 */
             toggleUserHistory(buttonEl, userId, username) {
                 const historyRow = document.getElementById(`history-for-user-${userId}`);
                 const isVisible = !historyRow.classList.contains('hidden');
 
-                // Close all other history rows
+                // 先关闭所有其他用户的历史记录，以保持界面整洁
                 document.querySelectorAll('tr[id^="history-for-user-"]').forEach(row => {
                     if (row.id !== `history-for-user-${userId}`) {
                         row.classList.add('hidden');
                     }
                 });
-
-                // Reset all other buttons
                 document.querySelectorAll('button[onclick^="ui.toggleUserHistory"]').forEach(btn => {
                     if (btn !== buttonEl) {
                         btn.innerHTML = '<i class="fa fa-history mr-1"></i> 查看历史';
                     }
                 });
 
+                // 切换当前点击的按钮和历史记录行
                 if (isVisible) {
                     historyRow.classList.add('hidden');
                     buttonEl.innerHTML = '<i class="fa fa-history mr-1"></i> 查看历史';
                 } else {
                     historyRow.classList.remove('hidden');
                     buttonEl.innerHTML = '<i class="fa fa-chevron-up mr-1"></i> 收起历史';
-
+                    // 如果数据未加载过，则从API获取
                     const contentDiv = historyRow.querySelector('.history-content');
                     if (contentDiv.dataset.loaded !== 'true') {
                         api.getUserHistory(userId, username);
                     }
                 }
             },
+            /** 显示成功消息 */
             showSuccess(message) { this.renderResult(`<div class="text-green-600">${message}</div>`) },
+            /** 显示错误消息 */
             showError(message) { this.renderResult(`<div class="text-red-600">${message}</div>`) }
         };
 
+        // API调用对象,封装所有与后端交互的fetch请求
         const api = {
+            /**
+             * 通用fetch处理器,封装了请求、错误处理和JSON解析
+             * @param {string} url - 请求的URL
+             * @param {object} options - fetch的配置选项
+             * @returns {Promise<any>} 解析后的JSON数据
+             */
             async handleFetch(url, options = {}) {
                 try {
                     const response = await fetch(url, options);
                     const data = await response.json();
                     if (!response.ok) {
-                        throw new Error(data.message || '请求失败');
+                        throw new Error(data.message || `请求失败,状态码: ${response.status}`);
                     }
                     return data;
                 } catch (error) {
-                    ui.showError(error.message);
-                    throw error;
+                    ui.showError(error.message); // 在UI上显示错误
+                    throw error; // 抛出错误,以便调用者可以捕获
                 }
             },
+            /** 用户注册 */
             async register() {
                 const username = document.getElementById('registerUsername').value;
                 const password = document.getElementById('registerPassword').value;
                 if (password.length < 6) { ui.showError('密码长度不能少于6位'); return; }
 
                 try {
-                    await this.handleFetch(`${API_BASE_URL}/auth/register`, {
+                    const data = await this.handleFetch(`${API_BASE_URL}/auth/register`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })
                     });
-                    ui.showSuccess('注册成功！请登录。');
+                    ui.showSuccess(data.message + '请登录。');
                     ui.showLoginForm();
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** 用户登录 */
             async login() {
                 const username = document.getElementById('loginUsername').value;
                 const password = document.getElementById('loginPassword').value;
@@ -427,24 +468,25 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })
                     });
+                    // 存储用户信息到全局state和localStorage
                     store.user = { id: data.userId, username: data.username };
                     store.token = data.token;
                     store.isAdmin = data.isAdmin;
                     localStorage.setItem('libraryUser', JSON.stringify(store.user));
                     localStorage.setItem('libraryToken', store.token);
-                    localStorage.setItem('libraryIsAdmin', store.isAdmin);
-                    initApp();
+                    localStorage.setItem('libraryIsAdmin', store.isAdmin.toString());
+                    initApp(); // 重新初始化应用界面
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** 用户登出 */
             logout() {
                 store.user = null;
                 store.token = null;
                 store.isAdmin = false;
-                localStorage.removeItem('libraryUser');
-                localStorage.removeItem('libraryToken');
-                localStorage.removeItem('libraryIsAdmin');
-                location.reload();
+                localStorage.clear(); // 清空所有本地存储
+                location.reload(); // 刷新页面回到登录状态
             },
+            /** 搜索图书 */
             async searchBooks() {
                 const query = document.getElementById('bookSearchInput').value;
                 try {
@@ -452,25 +494,28 @@
                     ui.renderAllBooks(books);
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** (管理员)添加图书 */
             async addBook() {
                 const title = document.getElementById('addBookTitle').value;
                 const stock = parseInt(document.getElementById('addBookStock').value);
                 if (!title || isNaN(stock) || stock < 0) { ui.showError('请输入有效的图书信息。'); return; }
 
                 try {
-                    const data = await this.handleFetch(`${API_BASE_URL}/books`, {
+                    await this.handleFetch(`${API_BASE_URL}/books`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title, stock })
+                        body: JSON.stringify({ title, stock, adminId: store.user.id })
                     });
-                    ui.showSuccess(`图书《${data.book.title}》已成功添加！`);
+                    // 使用本地变量显示成功信息,因为后端此接口不返回图书对象
+                    ui.showSuccess(`图书《${title}》已成功添加！`);
                     document.getElementById('addBookTitle').value = '';
                     document.getElementById('addBookStock').value = '';
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** 借阅图书 */
             async borrowBook() {
                 const bookId = parseInt(document.getElementById('borrowBookId').value);
-                if (isNaN(bookId)) { ui.showError('请输入有效的图书ID。'); return; }
+                if (isNaN(bookId) || bookId <= 0) { ui.showError('请输入有效的图书ID。'); return; }
 
                 try {
                     await this.handleFetch(`${API_BASE_URL}/borrow`, {
@@ -482,11 +527,14 @@
                     document.getElementById('borrowBookId').value = '';
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** 归还图书 */
             async returnBook() {
+                // 读取图书ID
                 const bookId = parseInt(document.getElementById('returnBookId').value);
-                if (isNaN(bookId)) { ui.showError('请输入有效的图书ID。'); return; }
+                if (isNaN(bookId) || bookId <= 0) { ui.showError('请输入有效的图书ID。'); return; }
 
                 try {
+                    // 调用新的还书API, 发送 userId 和 bookId
                     await this.handleFetch(`${API_BASE_URL}/return`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -494,30 +542,41 @@
                     });
                     ui.showSuccess(`图书ID: ${bookId} 归还成功！`);
                     document.getElementById('returnBookId').value = '';
+                    api.getMyBorrows(); // 归还成功后刷新"我的借阅"列表
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** 获取当前用户的借阅列表 */
             async getMyBorrows() {
                 try {
                     const borrows = await this.handleFetch(`${API_BASE_URL}/user/${store.user.id}/borrows`);
                     ui.renderMyBorrows(borrows);
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** 获取热门图书推荐 */
             async getRecommendations() {
                 try {
                     const books = await this.handleFetch(`${API_BASE_URL}/user/${store.user.id}/recommendations`);
                     ui.renderRecommendations(books);
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** (管理员)获取所有用户列表 */
             async getAllUsers() {
+                if (!store.isAdmin) { ui.showError("无管理员权限"); return; }
                 try {
-                    const users = await this.handleFetch(`${API_BASE_URL}/admin/users`);
+                    // 修正: 使用GET方法,并将adminId作为查询参数
+                    const url = `${API_BASE_URL}/admin/users?adminId=${store.user.id}`;
+                    const users = await this.handleFetch(url, { method: 'GET' });
                     ui.renderUsers(users);
                 } catch (e) { /* 错误已在 handleFetch 中处理 */ }
             },
+            /** (管理员)获取指定用户的借阅历史 */
             async getUserHistory(userId, username) {
-                ui.clearResult(); // 在开始新操作时清除通用消息区域
+                if (!store.isAdmin) { ui.showError("无管理员权限"); return; }
+                ui.clearResult();
                 try {
-                    const records = await this.handleFetch(`${API_BASE_URL}/admin/user/${userId}/borrows`);
+                    // 修正: 使用GET方法, 正确的URL, 并将adminId作为查询参数
+                    const url = `${API_BASE_URL}/admin/user/${userId}/borrows?adminId=${store.user.id}`;
+                    const records = await this.handleFetch(url, { method: 'GET' });
                     ui.renderUserHistory(userId, username, records);
                 } catch (e) {
                     const historyRow = document.getElementById(`history-for-user-${userId}`);
@@ -529,30 +588,39 @@
             }
         };
 
+        /**
+         * 应用初始化函数
+         * - 检查localStorage中是否有登录信息
+         * - 如果有,则恢复用户状态,显示主界面
+         * - 如果没有,则显示登录/注册模态框
+         */
         function initApp() {
-            const savedUser = localStorage.getItem('libraryUser');
-            const savedToken = localStorage.getItem('libraryToken');
-            const savedIsAdmin = localStorage.getItem('libraryIsAdmin') === 'true';
+            const user = JSON.parse(localStorage.getItem('libraryUser'));
+            const token = localStorage.getItem('libraryToken');
+            const isAdmin = localStorage.getItem('libraryIsAdmin') === 'true';
 
-            if (savedUser && savedToken) {
-                store.user = JSON.parse(savedUser);
-                store.token = savedToken;
-                store.isAdmin = savedIsAdmin;
-                document.getElementById('currentUsername').textContent = store.user.username;
+            if (user && token) {
+                store.user = user;
+                store.token = token;
+                store.isAdmin = isAdmin;
+
+                document.getElementById('currentUsername').textContent = user.username;
                 document.getElementById('mainContent').classList.remove('hidden');
-
-                if (store.isAdmin) {
-                    document.getElementById('adminMenu').classList.remove('hidden');
-                }
-
                 ui.hideAuthModal();
-                ui.showForm('allBooks');
+                ui.showForm('allBooks'); // 默认显示所有图书
+
+                // 根据是否为管理员显示/隐藏相关菜单
+                if (isAdmin) {
+                    document.getElementById('adminMenu').classList.remove('hidden');
+                } else {
+                    document.getElementById('adminMenu').classList.add('hidden');
+                }
             } else {
                 ui.showAuthModal();
-                document.getElementById('mainContent').classList.add('hidden');
             }
         }
 
+        // DOM加载完成后,执行应用初始化
         document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
