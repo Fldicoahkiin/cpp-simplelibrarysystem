@@ -25,3 +25,6 @@ cmake_install.cmake
 
 # vcpkg
 vcpkg_installed/
+
+# macOS
+.DS_Store
