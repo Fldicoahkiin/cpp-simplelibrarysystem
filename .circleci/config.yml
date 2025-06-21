@@ -23,15 +23,13 @@ jobs:
           name: "安装 Homebrew 依赖"
           command: brew install cmake ninja
       - run:
-          name: "安装 vcpkg"
+          name: "安装 Vcpkg 并获取依赖"
           command: |
             if [ ! -d "$VCPKG_ROOT" ]; then
               git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
               "$VCPKG_ROOT/bootstrap-vcpkg.sh"
             fi
-      - run:
-          name: "用 vcpkg 安装项目依赖"
-          command: "$VCPKG_ROOT/vcpkg" install
+            "$VCPKG_ROOT/vcpkg" install
       - run:
           name: "配置 CMake"
           command: |
@@ -59,17 +57,14 @@ jobs:
     steps:
       - checkout
       - run:
-          name: "安装 vcpkg"
+          name: "安装 Vcpkg 并获取依赖"
           shell: powershell.exe
           command: |
             if (-not (Test-Path $env:VCPKG_ROOT)) {
               git clone https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
               & "$env:VCPKG_ROOT/bootstrap-vcpkg.bat"
             }
-      - run:
-          name: "用 vcpkg 安装项目依赖"
-          shell: powershell.exe
-          command: '& "$env:VCPKG_ROOT/vcpkg" install'
+            & "$env:VCPKG_ROOT/vcpkg" install
       - run:
           name: "配置 CMake"
           shell: powershell.exe
