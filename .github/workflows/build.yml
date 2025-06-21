@@ -60,7 +60,14 @@ jobs:
       - name: 编译可执行文件
         run: cmake --build build --config Release
 
-      # 第5步：上传构建产物
+      # 第5步：复制 DLL 到输出目录
+      - name: 复制 DLL 到输出目录
+        run: |
+          mkdir -p build/Release/dlls
+          cp "$VCPKG_ROOT/installed/x64-windows/bin"/*.dll build/Release/
+        shell: bash
+
+      # 第6步：上传构建产物
       # 将编译好的可执行文件作为 "artifact" 上传，以供后续的 "release" 作业使用。
       - name: 上传构建产物以供发布
         uses: actions/upload-artifact@v4
@@ -115,23 +122,23 @@ jobs:
 
       # 第5步：生成发布信息
       # 在一个独立的步骤中运行shell命令来生成标签和发布名称。
-      # 这比在 action 的 'with' 块中直接内联shell命令更可靠。
       - name: 生成发布标签和名称
+        id: release_info
         run: |
-          echo "RELEASE_TAG=Release-$(TZ='Asia/Shanghai' date +'%Y-%m-%d-%H%M')" >> $GITHUB_ENV
-          echo "RELEASE_NAME=Release $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M')" >> $GITHUB_ENV
+          echo "TAG=Release-$(TZ='Asia/Shanghai' date +'%Y-%m-%d-%H%M')" >> $GITHUB_OUTPUT
+          echo "NAME=Release $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
         shell: bash
 
       # 第6步：创建 GitHub Release
-      # 使用上一步生成的环境变量来创建版本。
+      # 使用上一步生成的输出来创建版本。
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             server-windows.exe
             server-macos
-          tag_name: ${{ env.RELEASE_TAG || 'draft-tag' }}
-          name: ${{ env.RELEASE_NAME || 'Draft Release' }}
+          tag_name: ${{ steps.release_info.outputs.TAG }}
+          name: ${{ steps.release_info.outputs.NAME }}
           body: |
             由 commit ${{ github.sha }} 自动触发的构建产物。
         env:

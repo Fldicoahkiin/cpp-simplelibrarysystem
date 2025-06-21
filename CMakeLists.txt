@@ -1,15 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
 
-# --- 智能寻找并加载 vcpkg 工具链 (用于改善 IDE/Linter 体验) ---
-# 此代码块解决在某些IDE中直接打开项目时，Linter无法找到vcpkg库的问题。
-# 它检查 CMAKE_TOOLCHAIN_FILE 是否未被定义，如果是，则直接包含本地的vcpkg.cmake脚本，
-# 强制IDE的CMake Linter加载vcpkg。
-# 此操作不会影响CI或任何使用预设(Presets)的正确命令行构建流程。
-if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND EXISTS "/Users/mac/vcpkg/scripts/buildsystems/vcpkg.cmake")
-    message(STATUS "IDE/Linter Helper: No toolchain file specified. Forcing inclusion of local vcpkg toolchain.")
-    include("/Users/mac/vcpkg/scripts/buildsystems/vcpkg.cmake")
-endif()
-
 project(LibraryServer LANGUAGES CXX)
 
 #-----------------------------------------------------------------------------
