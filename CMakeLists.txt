@@ -16,13 +16,22 @@ set(CMAKE_VERBOSE_MAKEFILE ON) # 在构建时显示详细的编译命令
 # 应使用库安装后提供的CMake包名 (例如 vcpkg 包 'cpp-httplib' 提供的是 'httplib')。
 find_package(httplib CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(unofficial-libmysql CONFIG REQUIRED)
+# find_package(unofficial-libmysql CONFIG REQUIRED) # Temporarily disabled
 
 #-----------------------------------------------------------------------------
 # 构建目标定义
 #-----------------------------------------------------------------------------
 # 定义最终生成的可执行文件 "server"，源文件为 "server.cpp"
 add_executable(server server.cpp)
+
+# 在构建 "server" 目标后，自动将 index.html 复制到可执行文件所在的目录
+# 这样在本地开发运行时，服务器总能找到它的前端文件。
+add_custom_command(TARGET server POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_SOURCE_DIR}/index.html
+    $<TARGET_FILE_DIR:server>/index.html
+    COMMENT "Copying index.html to output directory"
+)
 
 # 将构建目录添加到头文件搜索路径，以便找到生成的 index_html.h
 target_include_directories(server PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -35,5 +44,4 @@ target_include_directories(server PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(server PRIVATE
     httplib::httplib
     nlohmann_json::nlohmann_json
-    unofficial::libmysql::libmysql
-) 
+)

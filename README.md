@@ -54,6 +54,8 @@
 
 本项目使用 **CMake Presets** 和 **vcpkg** 来实现极简的本地构建体验。
 
+> **重要提示 (Windows 用户)**: 为了解决特定环境下的编译问题，本项目的数据库功能已被暂时禁用。当前版本可以在没有 MySQL 的情况下编译和运行，但所有数据库相关操作（如注册、借书）都会返回"功能已禁用"的提示。
+
 ### 环境要求
 
 1. **安装构建工具**:
@@ -64,7 +66,7 @@
       - macOS: Xcode Command Line Tools。
 
 2. **获取 vcpkg**:
-    如果您本地没有vcpkg，请克隆它。本项目推荐将其放置在一个统一的位置 (例如用户主目录)。
+    如果您本地没有vcpkg，请克隆它。本项目推荐将其放置在一个统一的位置 (例如 `Q:/vcpkg` 或用户主目录)。
 
     ```bash
     git clone https://github.com/microsoft/vcpkg.git
@@ -73,28 +75,37 @@
     ```
 
 3. **配置CMake预设文件**:
-    本项目包含的 `CMakePresets.json` 文件已将vcpkg工具链的路径硬编码为 `/Users/mac/vcpkg`。如果您的vcpkg安装在不同位置，请相应修改此文件。
+    项目根目录的 `CMakePresets.json` 文件已包含针对 Windows 和 macOS 的预设。请根据您的 vcpkg 安装路径，检查并修改该文件中的 `CMAKE_TOOLCHAIN_FILE` 路径。
 
 ### 编译项目
 
-完成上述配置后，只需在项目根目录运行以下两行命令：
+完成上述配置后，只需在项目根目录运行以下命令：
 
 ```bash
 # 1. 配置项目 (此步骤会自动通过vcpkg安装所有依赖)
-cmake --preset default
+# Windows 用户:
+cmake --preset windows-default
+# macOS 用户:
+# cmake --preset default
 
 # 2. 编译项目
+# Windows 用户 (编译产物在 build/Debug/server.exe):
 cmake --build build
+# macOS 用户 (编译产物在 build-mac/server):
+# cmake --build build-mac
 ```
 
-编译成功后，可执行文件 `server` (或 `server.exe`) 将位于 `build` 目录下。由于我们采用了资源嵌入，本地编译时，程序会从文件系统读取 `index.html` 以方便您修改前端；而通过CI发布的版本则直接包含了HTML内容。
+编译成功后，可执行文件将位于对应的构建目录中。构建系统会自动将 `index.html` 复制到可执行文件旁边，方便本地运行。
 
 ---
 
 ## ⚙️ 部署与运行
 
 1. **启动数据库**: 确保您的MySQL服务器正在运行。
+   > **注意**: 当前版本的数据库功能已在代码中禁用，此步骤可暂时跳过。
+
 2. **初始化数据库**: 使用项目中的 `init.sql` 脚本创建所需的数据库和表。
+    > **注意**: 当前版本的数据库功能已在代码中禁用，此步骤可暂时跳过。
 
     ```sql
     -- 登录MySQL
@@ -104,12 +115,16 @@ cmake --build build
     ```
 
 3. **启动后端服务器**:
-    进入 `build` 目录，直接运行可执行文件。
+    进入对应的构建目录，直接运行可执行文件。
 
     ```bash
-    cd build
-    ./server  # macOS/Linux
-    ./server.exe # Windows
+    # Windows
+    cd build/Debug
+    ./server.exe
+
+    # macOS
+    # cd build-mac
+    # ./server
     ```
 
 4. **访问前端**:

@@ -3,14 +3,27 @@
     "configurePresets": [
         {
             "name": "default",
-            "displayName": "Default vcpkg",
+            "displayName": "Default vcpkg (macOS)",
             "description": "Uses vcpkg toolchain located at /Users/mac/vcpkg.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-mac",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "/Users/mac/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                }
+            }
+        },
+        {
+            "name": "windows-default",
+            "displayName": "Default vcpkg (Windows)",
+            "description": "Uses vcpkg toolchain located at Q:/vcpkg.",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_TOOLCHAIN_FILE": {
                     "type": "FILEPATH",
-                    "value": "/Users/mac/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                    "value": "Q:/vcpkg/scripts/buildsystems/vcpkg.cmake"
                 }
             }
         }
