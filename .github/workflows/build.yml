@@ -29,54 +29,57 @@ jobs:
     # 使用构建矩阵，在 Windows 和 macOS 上并行执行此作业
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]
-    
+        include:
+          - os: windows-latest
+            triplet: x64-windows-static
+            exe_name: server.exe
+            final_name: server-windows.exe
+          - os: macos-latest
+            triplet: arm64-osx
+            exe_name: server
+            final_name: server-macos
+
     # 指定运行环境
     runs-on: ${{ matrix.os }}
 
     steps:
       # 第1步：检出代码
-      # 获取您仓库的最新代码。
       - name: 检出仓库代码
         uses: actions/checkout@v4
 
-      # 第2步：设置 vcpkg
-      # 使用 'lukka/run-vcpkg' action 来自动安装 vcpkg.json 中定义的依赖。
-      - name: 通过 vcpkg 安装依赖
+      # 第2步：设置 vcpkg (使用静态库)
+      - name: 通过 vcpkg 安装静态依赖
         uses: lukka/run-vcpkg@v11
+        env:
+          VCPKG_TARGET_TRIPLET: ${{ matrix.triplet }}
         with:
-          # 固定 vcpkg 版本，确保构建环境的稳定性与可复现性。
           vcpkgGitCommitId: 'ef7dbf94b9198bc58f45951adcf1f041fcbc5ea0'
 
-      # 第3步：配置 CMake
-      # 使用 vcpkg 的工具链文件来配置项目。
-      # 'shell: bash' 确保此命令在 Windows 和 macOS 上都使用 Bash shell 执行，以统一行为。
+      # 第3步：配置 CMake (强制静态链接)
       - name: 配置 CMake
-        run: cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            -DBUILD_SHARED_LIBS=OFF
         shell: bash
 
-      # 第4步：编译项目
-      # 使用 --config Release 来构建发布版本的可执行文件。
+      # 第4步：将 HTML 嵌入为 C++ 头文件
+      - name: 嵌入 HTML 资源
+        run: |
+          python -c "with open('index.html', 'r', encoding='utf-8') as f: content = f.read(); print(f'#pragma once\\n\\nconst char index_html_content[] = R\"raw({content})raw\";') " > build/index_html.h
+        shell: bash
+
+      # 第5步：编译项目
       - name: 编译可执行文件
         run: cmake --build build --config Release
 
-      # 第5步：复制 DLL 到输出目录
-      - name: 复制 DLL 到输出目录
-        run: |
-          mkdir -p build/Release/dlls
-          cp "$VCPKG_ROOT/installed/x64-windows/bin"/*.dll build/Release/
-        shell: bash
-
       # 第6步：上传构建产物
-      # 将编译好的可执行文件作为 "artifact" 上传，以供后续的 "release" 作业使用。
-      - name: 上传构建产物以供发布
+      - name: 上传可执行文件
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }} # 产物名称，如 "build-windows-latest"
-          path: |
-            build/Release/server.exe
-            build/server
-          if-no-files-found: ignore # 如果特定平台找不到文件 (如 macOS 上没有 .exe)，则忽略
+          name: build-artifact-${{ matrix.os }}
+          path: build/${{ matrix.exe_name }}
 
   #--- 发布作业 (release) ---
   # 此作业在所有构建成功后运行，负责创建最终的 GitHub Release。
@@ -89,39 +92,24 @@ jobs:
       contents: write
 
     steps:
-      # 第1步：下载 Windows 构建产物
-      - name: 下载 Windows 产物
+      # 第1步：下载所有构建产物
+      - name: 下载所有产物
         uses: actions/download-artifact@v4
         with:
-          name: build-windows-latest
-          path: artifacts/windows
+          path: artifacts
 
-      # 第2步：下载 macOS 构建产物
-      - name: 下载 macOS 产物
-        uses: actions/download-artifact@v4
-        with:
-          name: build-macos-latest
-          path: artifacts/macos
-
-      # 第3步：检查下载的文件结构 (用于调试)
-      - name: 显示下载文件结构
-        run: ls -R artifacts
-
-      # 第4步：准备用于发布的资源
-      # 将不同目录下的产物移动到根目录并重命名，方便统一上传。
+      # 第2步：准备用于发布的资源
       - name: 准备发布资源
         run: |
-          set -x # 打印执行的命令
-          if [ -f "artifacts/windows/Release/server.exe" ]; then
-            mv artifacts/windows/Release/server.exe ./server-windows.exe
-          fi
-          if [ -f "artifacts/macos/server" ]; then
-            mv artifacts/macos/server ./server-macos
-          fi
+          find artifacts -name 'server.exe' -exec mv {} ./server-windows.exe \;
+          find artifacts -name 'server' -exec mv {} ./server-macos \;
         shell: bash
 
-      # 第5步：生成发布信息
-      # 在一个独立的步骤中运行shell命令来生成标签和发布名称。
+      # 第3步：显示文件结构 (用于调试)
+      - name: 显示最终文件
+        run: ls -l
+
+      # 第4步：生成发布信息
       - name: 生成发布标签和名称
         id: release_info
         run: |
@@ -129,8 +117,7 @@ jobs:
           echo "NAME=Release $(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M')" >> $GITHUB_OUTPUT
         shell: bash
 
-      # 第6步：创建 GitHub Release
-      # 使用上一步生成的输出来创建版本。
+      # 第5步：创建 GitHub Release
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -141,5 +128,6 @@ jobs:
           name: ${{ steps.release_info.outputs.NAME }}
           body: |
             由 commit ${{ github.sha }} 自动触发的构建产物。
+            这是一个独立的、自包含的可执行文件。
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

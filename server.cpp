@@ -8,6 +8,11 @@
 #include <string>
 #include <vector>
 
+// 在编译时有条件地包含嵌入的HTML头文件
+#if __has_include("index_html.h")
+#include "index_html.h"
+#endif
+
 // 使用 nlohmann/json 命名空间
 using json = nlohmann::json;
 using namespace std;
@@ -626,18 +631,27 @@ int main(void)
     LibraryService service;
 
     // 提供静态文件服务
-    svr.set_base_dir(".");
     svr.Get("/", [](const Request &req, Response &res)
             {
-        std::ifstream file("index.html");
-        if (file) {
-            std::stringstream buffer;
-            buffer << file.rdbuf();
-            res.set_content(buffer.str(), "text/html; charset=utf-8");
-        } else {
-            res.status = 404;
-            res.set_content("Not Found", "text/plain");
-        } });
+#ifdef index_html_content
+                // 如果HTML内容已嵌入，则直接从内存提供
+                res.set_content(index_html_content, "text/html; charset=utf-8");
+#else
+                // 否则，作为备选，从文件系统读取 (主要用于本地开发)
+                std::ifstream file("index.html");
+                if (file)
+                {
+                    std::stringstream buffer;
+                    buffer << file.rdbuf();
+                    res.set_content(buffer.str(), "text/html; charset=utf-8");
+                }
+                else
+                {
+                    res.set_content("<h1>Error 404</h1><p>index.html not found.</p>", "text/html; charset=utf-8");
+                    res.status = 404;
+                }
+#endif
+            });
 
     auto handle_request = [&](const Request &req, Response &res, auto service_method)
     {

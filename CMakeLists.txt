@@ -24,9 +24,8 @@ find_package(unofficial-libmysql CONFIG REQUIRED)
 # 定义最终生成的可执行文件 "server"，源文件为 "server.cpp"
 add_executable(server server.cpp)
 
-# 在编译时，自动将前端静态文件 (index.html) 复制到构建输出目录，
-# 这样可执行文件才能在运行时找到它。
-file(COPY index.html DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# 将构建目录添加到头文件搜索路径，以便找到生成的 index_html.h
+target_include_directories(server PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 #-----------------------------------------------------------------------------
 # 链接库
