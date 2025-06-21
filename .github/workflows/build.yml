@@ -130,8 +130,8 @@ jobs:
           files: |
             server-windows.exe
             server-macos
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: ${{ env.RELEASE_NAME }}
+          tag_name: ${{ env.RELEASE_TAG || 'draft-tag' }}
+          name: ${{ env.RELEASE_NAME || 'Draft Release' }}
           body: |
             由 commit ${{ github.sha }} 自动触发的构建产物。
         env:
